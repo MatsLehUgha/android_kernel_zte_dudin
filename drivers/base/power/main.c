@@ -636,8 +636,7 @@ static int device_resume(struct device *dev, pm_message_t state, bool async)
 
  Unlock:
 	device_unlock(dev);
-
- 	complete_all(&dev->power.completion);
+	complete_all(&dev->power.completion);
 
 	TRACE_RESUME(error);
 
@@ -1082,7 +1081,7 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 		pm_wakeup_event(dev, 0);
 
 	if (pm_wakeup_pending()) {
- 		async_error = -EBUSY;
+		async_error = -EBUSY;
 		goto Complete;
 	}
 
@@ -1153,9 +1152,9 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 	destroy_timer_on_stack(&timer);
 
  Complete:
- 	complete_all(&dev->power.completion);
- 
- 	if (error)
+	complete_all(&dev->power.completion);
+
+	if (error)
 		async_error = error;
 	else if (dev->power.is_suspended)
 		__pm_runtime_disable(dev, false);

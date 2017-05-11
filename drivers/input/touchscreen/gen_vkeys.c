@@ -10,8 +10,6 @@
  * GNU General Public License for more details.
  */
 
-
-
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
@@ -26,7 +24,7 @@
 #define HEIGHT_SCALE_NUM 8
 #define HEIGHT_SCALE_DENOM 10
 
-#define VKEY_Y_OFFSET_DEFAULT 0
+#define VKEY_Y_OFFSET_DEFAULT 10
 
 /* numerator and denomenator for border equations */
 #define BORDER_ADJUST_NUM 3
@@ -164,9 +162,9 @@ static int __devinit vkeys_probe(struct platform_device *pdev)
 	height = height * HEIGHT_SCALE_NUM / HEIGHT_SCALE_DENOM;
 	x2 -= border * BORDER_ADJUST_NUM / BORDER_ADJUST_DENOM;
 	#endif
-	//border :(distance between two keys)/2
+	
 	border = (pdata->panel_maxx/ (pdata->num_keys*4)) ;
-	//and distance=width of key
+	
 	width = ((pdata->disp_maxx - (border * pdata->num_keys*2 ))
 			/ pdata->num_keys);
 	height = (pdata->panel_maxy - pdata->disp_maxy);
@@ -176,7 +174,8 @@ static int __devinit vkeys_probe(struct platform_device *pdev)
 	for (i = 0; i < pdata->num_keys; i++) {
 		x1 = x2 + border*2;
 		x2 = x2 + border*2 + width;		
-		center_x = x1 + (x2 - x1) / 2;
+		
+        center_x = pdata->disp_maxx/2 + (i-1)*180;
 		c += snprintf(vkey_buf + c, MAX_BUF_SIZE - c,
 				"%s:%d:%d:%d:%d:%d\n",
 				VKEY_VER_CODE, pdata->keycodes[i],
@@ -193,13 +192,15 @@ static int __devinit vkeys_probe(struct platform_device *pdev)
 	snprintf(name, MAX_BUF_SIZE,
 				"virtualkeys.%s", pdata->name);
 	vkey_obj_attr.attr.name = name;
-
-	vkey_obj = kobject_create_and_add("board_properties", NULL);
-	if (!vkey_obj) {
-		dev_err(&pdev->dev, "unable to create kobject\n");
-		return -ENOMEM;
+	
+	if(!vkey_obj){
+		vkey_obj = kobject_create_and_add("board_properties", NULL);
+		if (!vkey_obj) {
+			dev_err(&pdev->dev, "unable to create kobject\n");
+			return -ENOMEM;
+		}
 	}
-
+	
 	ret = sysfs_create_group(vkey_obj, &vkey_grp);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to create attributes\n");
@@ -222,7 +223,7 @@ static int __devexit vkeys_remove(struct platform_device *pdev)
 }
 
 static struct of_device_id vkey_match_table[] = {
-	{ .compatible = "qcom,gen-vkeys",},
+	{ .compatible = "qcom,gen-keys",},
 	{ },
 };
 

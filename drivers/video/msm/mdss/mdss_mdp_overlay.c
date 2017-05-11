@@ -60,6 +60,9 @@ static int mdss_mdp_overlay_fb_parse_dt(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd);
 static int mdss_mdp_overlay_splash_parse_dt(struct msm_fb_data_type *mfd);
 
+static void __vsync_retire_signal(struct msm_fb_data_type *mfd, int val);
+
+
 static int mdss_mdp_overlay_sd_ctrl(struct msm_fb_data_type *mfd,
 					unsigned int enable)
 {
@@ -856,14 +859,7 @@ static int mdss_mdp_overlay_start(struct msm_fb_data_type *mfd)
 		return rc;
 	}
 
-	/*
-	 * We need to do hw init before any hw programming.
-	 * Also, hw init involves programming the VBIF registers which
-	 * should be done only after attaching IOMMU which in turn would call
-	 * in to TZ to restore security configs on the VBIF registers.
-	 * This is not needed when continuous splash screen is enabled since
-	 * we would have called in to TZ to restore security configs from LK.
-	 */
+
 	if (!is_mdss_iommu_attached()) {
 		if (!mfd->panel_info->cont_splash_enabled)
 			mdss_iommu_attach(mdss_res);
@@ -963,8 +959,8 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	int ret = 0;
 	int sd_in_pipe = 0;
 	
-     bool need_cleanup = false;
-    
+	bool need_cleanup = false;
+
 	if (!ctl) {
 		pr_warn("kickoff on fb=%d without a ctl attched\n", mfd->index);
 		return ret;
@@ -979,20 +975,17 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 	mutex_lock(&mdp5_data->ov_lock);
 	mutex_lock(&mfd->lock);
 
-	/*
-	 * check if there is a secure display session
-	 */
+
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
 		if (pipe->flags & MDP_SECURE_DISPLAY_OVERLAY_SESSION) {
 			sd_in_pipe |= 1;
 			pr_debug("Secure pipe: %u : %08X\n",
 					pipe->num, pipe->flags);
 		}
+		
+		need_cleanup = true;
 	}
-	/*
-	 * If there is no secure display session and sd_enabled, disable the
-	 * secure display session
-	 */
+
 	if (!sd_in_pipe && mdp5_data->sd_enabled) {
 		if (0 == mdss_mdp_overlay_sd_ctrl(mfd, 0))
 			mdp5_data->sd_enabled = 0;
@@ -1005,12 +998,13 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 
 	if (data)
 		mdss_mdp_set_roi(ctl, data);
-		
-	    list_for_each_entry(pipe, &mdp5_data->pipes_cleanup, cleanup_list) {
+	
+
+	list_for_each_entry(pipe, &mdp5_data->pipes_cleanup, cleanup_list) {
 		mdss_mdp_pipe_queue_data(pipe, NULL);
 		mdss_mdp_mixer_pipe_unstage(pipe);
-	   	
 	}
+	//zte-modify by zuojianfang for wifi-display abnormal end
 
 	list_for_each_entry(pipe, &mdp5_data->pipes_used, used_list) {
 		struct mdss_mdp_data *buf;
@@ -1074,9 +1068,6 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 			pr_warn("Unable to queue data for pnum=%d\n",
 					pipe->num);
 			mdss_mdp_mixer_pipe_unstage(pipe);
-			
-			need_cleanup = true;
-			
 		}
 	}
 
@@ -1084,26 +1075,26 @@ int mdss_mdp_overlay_kickoff(struct msm_fb_data_type *mfd,
 		ret = mdss_mdp_wb_kickoff(mfd);
 	else
 		ret = mdss_mdp_display_commit(mdp5_data->ctl, NULL);
-		
-	//atomic_set(&mfd->kickoff_pending, 0);
-	//wake_up_all(&mfd->kickoff_wait_q);
-    if (!need_cleanup) {
+	//zte-modify by zuojianfang for wifi-display abnormal begin
+	if (!need_cleanup) {
 		atomic_set(&mfd->kickoff_pending, 0);
 		wake_up_all(&mfd->kickoff_wait_q);
 	}
+	//zte-modify by zuojianfang for wifi-display abnormal end
 	
 	mutex_unlock(&mfd->lock);
 
 	if (IS_ERR_VALUE(ret))
 		goto commit_fail;
 		
+    //zte-modify by zuojianfang for wifi-display abnormal
 	mutex_unlock(&mdp5_data->ov_lock);
-
 	mdss_mdp_overlay_update_pm(mdp5_data);
 
 	ret = mdss_mdp_display_wait4comp(mdp5_data->ctl);
+	//zte-modify by zuojianfang for wifi-display abnormal
 	mutex_lock(&mdp5_data->ov_lock);
-    
+
 	if (ret == 0) {
 		mutex_lock(&mfd->lock);
 		if (!mdp5_data->sd_enabled && (sd_in_pipe == 1)) {
@@ -1119,12 +1110,13 @@ commit_fail:
 	mdss_mdp_overlay_cleanup(mfd);
 	mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 	mdss_mdp_ctl_notify(ctl, MDP_NOTIFY_FRAME_FLUSHED);
-	
-    if (need_cleanup) {
+	//zte-modify by zuojianfang for wifi-display abnormal begin
+	if (need_cleanup) {
 		atomic_set(&mfd->kickoff_pending, 0);
 		wake_up_all(&mfd->kickoff_wait_q);
 	}
-	
+	//zte-modify by zuojianfang for wifi-display abnormal end	
+
 	mutex_unlock(&mdp5_data->ov_lock);
 	if (ctl->shared_lock)
 		mutex_unlock(ctl->shared_lock);
@@ -1160,7 +1152,8 @@ static int mdss_mdp_overlay_release(struct msm_fb_data_type *mfd, int ndx)
 						&mdp5_data->pipes_cleanup);
 			}
 			mutex_unlock(&mfd->lock);
-			mdss_mdp_mixer_pipe_unstage(pipe);
+			//zte-modify by zuojianfang for wifi-display abnormal
+			//mdss_mdp_mixer_pipe_unstage(pipe);
 			mdss_mdp_pipe_unmap(pipe);
 			if (destroy_pipe)
 				mdss_mdp_pipe_destroy(pipe);
@@ -1337,10 +1330,7 @@ static void mdss_mdp_overlay_force_cleanup(struct msm_fb_data_type *mfd)
 
 	pr_debug("forcing cleanup to unset dma pipes on fb%d\n", mfd->index);
 
-	/*
-	 * video mode panels require the layer to be unstaged and wait for
-	 * vsync to be able to release buffer.
-	 */
+
 	if (ctl && ctl->is_video_mode) {
 		ret = mdss_mdp_display_commit(ctl, NULL);
 		if (!IS_ERR_VALUE(ret))
@@ -2661,20 +2651,12 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 	struct mdss_overlay_private *mdp5_data;
 	struct mdss_mdp_mixer *mixer;
 	int need_cleanup;
-	struct mdss_panel_data *pdata = dev_get_platdata(&mfd->pdev->dev); // lijiangshuo modifiy for pv power on flick white 20140508
 
 	if (!mfd)
 		return -ENODEV;
 
 	if (mfd->key != MFD_KEY)
 		return -EINVAL;
-/* lijiangshuo modifiy for pv power on flick white start 20140508 */
-	if ((pdata) && (pdata->set_backlight)) {
-		mutex_lock(&mfd->bl_lock);
-		pdata->set_backlight(pdata, 0);
-		mutex_unlock(&mfd->bl_lock);
-	}
-/* lijiangshuo modifiy for pv power on flick white end 20140508 */
 
 	mdp5_data = mfd_to_mdp5_data(mfd);
 
@@ -2704,6 +2686,18 @@ static int mdss_mdp_overlay_off(struct msm_fb_data_type *mfd)
 		pr_debug("cleaning up pipes on fb%d\n", mfd->index);
 		mdss_mdp_overlay_kickoff(mfd, NULL);
 	}
+
+    //zte-modify,yyp,the mobile can't show the screen in some occasions(merge qcom's patch), begin
+
+	if (mdp5_data->retire_cnt) {
+		u32 fps = mdss_panel_get_framerate(mfd->panel_info);
+		u32 vsync_time = 1000 / (fps ? : DEFAULT_FRAME_RATE);
+
+	 	msleep(vsync_time);
+
+		__vsync_retire_signal(mfd, mdp5_data->retire_cnt);
+	 }
+    //zte-modify,yyp,the mobile can't show the screen in some occasions(merge qcom's patch), end
 
 	rc = mdss_mdp_ctl_stop(mdp5_data->ctl);
 	if (rc == 0) {
@@ -2765,10 +2759,7 @@ static int mdss_mdp_overlay_handoff(struct msm_fb_data_type *mfd)
 		mdp5_data->ctl = ctl;
 	}
 
-	/*
-	 * vsync interrupt needs on during continuous splash, this is
-	 * to initialize necessary ctl members here.
-	 */
+
 	rc = mdss_mdp_ctl_start(ctl, true);
 	if (rc) {
 		pr_err("Failed to initialize ctl\n");
@@ -2903,11 +2894,12 @@ static void __vsync_retire_handle_vsync(struct mdss_mdp_ctl *ctl, ktime_t t)
 	schedule_work(&mdp5_data->retire_work);
 }
 
+//zte-modify,yyp,the mobile can't show the screen in some occasions(merge qcom's patch), begin
 static void __vsync_retire_work_handler(struct work_struct *work)
 {
 	struct mdss_overlay_private *mdp5_data =
 		container_of(work, typeof(*mdp5_data), retire_work);
-	struct msm_sync_pt_data *sync_pt_data;
+	//struct msm_sync_pt_data *sync_pt_data;
 
 	if (!mdp5_data->ctl || !mdp5_data->ctl->mfd)
 		return;
@@ -2915,12 +2907,22 @@ static void __vsync_retire_work_handler(struct work_struct *work)
 	if (!mdp5_data->ctl->remove_vsync_handler)
 		return;
 
-	sync_pt_data = &mdp5_data->ctl->mfd->mdp_sync_pt_data;
-	mutex_lock(&sync_pt_data->sync_mutex);
-	if (mdp5_data->retire_cnt > 0) {
-		sw_sync_timeline_inc(mdp5_data->vsync_timeline, 1);
+	//sync_pt_data = &mdp5_data->ctl->mfd->mdp_sync_pt_data;
+	__vsync_retire_signal(mdp5_data->ctl->mfd, 1);
+}
 
-		mdp5_data->retire_cnt--;
+static void __vsync_retire_signal(struct msm_fb_data_type *mfd, int val)
+{
+	struct mdss_overlay_private *mdp5_data = mfd_to_mdp5_data(mfd);
+
+	//mutex_lock(&sync_pt_data->sync_mutex);
+	mutex_lock(&mfd->mdp_sync_pt_data.sync_mutex);
+
+	if (mdp5_data->retire_cnt > 0) {
+		sw_sync_timeline_inc(mdp5_data->vsync_timeline, val);
+
+		//mdp5_data->retire_cnt--;
+		mdp5_data->retire_cnt -= min(val, mdp5_data->retire_cnt);
 		if (mdp5_data->retire_cnt == 0) {
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 			mdp5_data->ctl->remove_vsync_handler(mdp5_data->ctl,
@@ -2928,8 +2930,10 @@ static void __vsync_retire_work_handler(struct work_struct *work)
 			mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_OFF, false);
 		}
 	}
-	mutex_unlock(&sync_pt_data->sync_mutex);
+	//mutex_unlock(&sync_pt_data->sync_mutex);
+	mutex_unlock(&mfd->mdp_sync_pt_data.sync_mutex);
 }
+//zte-modify,yyp,the mobile can't show the screen in some occasions(merge qcom's patch), end
 
 static struct sync_fence *
 __vsync_retire_get_fence(struct msm_sync_pt_data *sync_pt_data)
@@ -2954,7 +2958,10 @@ __vsync_retire_get_fence(struct msm_sync_pt_data *sync_pt_data)
 		return ERR_PTR(-EPERM);
 	}
 
-	if (mdp5_data->retire_cnt == 0) {
+    //zte-modify,yyp,the mobile can't show the screen in some occasions(merge qcom's patch), begin
+	//if (mdp5_data->retire_cnt == 0) {
+	if (!mdp5_data->vsync_retire_handler.enabled) {
+    //zte-modify,yyp,the mobile can't show the screen in some occasions(merge qcom's patch), end
 		mdss_mdp_clk_ctrl(MDP_BLOCK_POWER_ON, false);
 		rc = ctl->add_vsync_handler(ctl,
 				&mdp5_data->vsync_retire_handler);
@@ -3030,9 +3037,8 @@ int mdss_mdp_overlay_init(struct msm_fb_data_type *mfd)
 		goto init_fail;
 	}
 	mfd->mdp.private1 = mdp5_data;
-	
+	//zte-modify by zuojianfang for wifi-display abnormal
 	mfd->wait_for_kickoff = true;
-	
 
 	rc = mdss_mdp_overlay_fb_parse_dt(mfd);
 	if (rc)

@@ -327,8 +327,7 @@ FREE_SENSORDATA:
 	return rc;
 }
 
-//static //yuxin modify
-void msm_sensor_misc_regulator(
+static void msm_sensor_misc_regulator(
 	struct msm_sensor_ctrl_t *sctrl, uint32_t enable)
 {
 	int32_t rc = 0;
@@ -943,6 +942,30 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 		break;
 	}
 
+    
+	case CFG_SET_OTP_SETTING:
+       {
+           pr_err("fuyipeng --- CFG_SET_OTP_SETTING");
+           if (s_ctrl->func_tbl->sensor_set_opt_setting)
+           {
+               pr_err("fuyipeng --- CFG_SET_OTP_SETTING begin");
+               s_ctrl->func_tbl->sensor_set_opt_setting(s_ctrl);
+           }
+           break;
+       }
+    case CFG_GET_AF_OTP_SETTING:
+    {
+        if (s_ctrl->func_tbl->sensor_set_opt_setting)
+        {
+            uint16_t *data;
+            data = (uint16_t *)cdata->cfg.setting;
+            data[0] = s_ctrl->af_otp_macro;
+            data[1] = s_ctrl->af_otp_inifity;
+        }
+        break;
+    }
+    
+
 	case CFG_POWER_UP:
 		if (s_ctrl->sensor_state != MSM_SENSOR_POWER_DOWN) {
 			pr_err("%s:%d failed: invalid state %d\n", __func__,
@@ -994,6 +1017,7 @@ int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp)
 			rc = -EFAULT;
 		}
 		break;
+
 	case CFG_SET_STOP_STREAM_SETTING: {
 		struct msm_camera_i2c_reg_setting *stop_setting =
 			&s_ctrl->stop_setting;
@@ -1187,7 +1211,6 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 		return rc;
 	}
 
-	 
 	CDBG("%s %s probe succeeded\n", __func__,
 		s_ctrl->sensordata->sensor_name);
 	v4l2_subdev_init(&s_ctrl->msm_sd.sd,
@@ -1214,9 +1237,8 @@ int32_t msm_sensor_platform_probe(struct platform_device *pdev, void *data)
 	s_ctrl->msm_sd.close_seq = MSM_SD_CLOSE_2ND_CATEGORY | 0x3;
 	msm_sd_register(&s_ctrl->msm_sd);
 	CDBG("%s:%d\n", __func__, __LINE__);
-	if(strcmp("imx135", s_ctrl->sensordata->sensor_name)) {
-	     s_ctrl->func_tbl->sensor_power_down(s_ctrl);
-        }
+
+	s_ctrl->func_tbl->sensor_power_down(s_ctrl);
 	CDBG("%s:%d\n", __func__, __LINE__);
 	return rc;
 }

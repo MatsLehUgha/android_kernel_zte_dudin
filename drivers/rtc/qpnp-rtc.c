@@ -104,7 +104,11 @@ qpnp_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	u8 value[4], reg = 0, alarm_enabled = 0, ctrl_reg;
 	u8 rtc_disabled = 0, rtc_ctrl_reg;
 	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
-
+	
+	
+	
+	
+	
 	rtc_tm_to_time(tm, &secs);
 
 	value[0] = secs & 0xFF;
@@ -112,12 +116,15 @@ qpnp_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	value[2] = (secs >> 16) & 0xFF;
 	value[3] = (secs >> 24) & 0xFF;
 
-	dev_dbg(dev, "Seconds value to be written to RTC = %lu\n", secs);
-
+	
+	
+	
 	spin_lock_irqsave(&rtc_dd->alarm_ctrl_lock, irq_flags);
 	ctrl_reg = rtc_dd->alarm_ctrl_reg1;
-
+	
+	
 	if (ctrl_reg & BIT_RTC_ALARM_ENABLE) {
+		
 		alarm_enabled = 1;
 		ctrl_reg &= ~BIT_RTC_ALARM_ENABLE;
 		rc = qpnp_write_wrapper(rtc_dd, &ctrl_reg,
@@ -170,15 +177,18 @@ qpnp_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	}
 
 	/* Clear WDATA[0] */
+	
 	reg = 0x0;
 	rc = qpnp_write_wrapper(rtc_dd, &reg,
 				rtc_dd->rtc_base + REG_OFFSET_RTC_WRITE, 1);
+	
 	if (rc) {
 		dev_err(dev, "Write to RTC reg failed\n");
 		goto rtc_rw_fail;
 	}
 
 	/* Write to WDATA[3], WDATA[2] and WDATA[1] */
+	
 	rc = qpnp_write_wrapper(rtc_dd, &value[1],
 			rtc_dd->rtc_base + REG_OFFSET_RTC_WRITE + 1, 3);
 	if (rc) {
@@ -187,6 +197,7 @@ qpnp_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	}
 
 	/* Write to WDATA[0] */
+	
 	rc = qpnp_write_wrapper(rtc_dd, value,
 				rtc_dd->rtc_base + REG_OFFSET_RTC_WRITE, 1);
 	if (rc) {
@@ -219,7 +230,8 @@ qpnp_rtc_set_time(struct device *dev, struct rtc_time *tm)
 	}
 
 	rtc_dd->alarm_ctrl_reg1 = ctrl_reg;
-
+	
+	
 rtc_rw_fail:
 	if (alarm_enabled)
 		spin_unlock_irqrestore(&rtc_dd->alarm_ctrl_lock, irq_flags);
@@ -234,7 +246,8 @@ qpnp_rtc_read_time(struct device *dev, struct rtc_time *tm)
 	u8 value[4], reg;
 	unsigned long secs;
 	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
-
+	
+	
 	rc = qpnp_read_wrapper(rtc_dd, value,
 				rtc_dd->rtc_base + REG_OFFSET_RTC_READ,
 				NUM_8_BIT_RTC_REGS);
@@ -274,10 +287,12 @@ qpnp_rtc_read_time(struct device *dev, struct rtc_time *tm)
 		return rc;
 	}
 
-	dev_dbg(dev, "secs = %lu, h:m:s == %d:%d:%d, d/m/y = %d/%d/%d\n",
-			secs, tm->tm_hour, tm->tm_min, tm->tm_sec,
-			tm->tm_mday, tm->tm_mon, tm->tm_year);
 
+			
+	/*printk("PM_DEBUG_MXP: secs = %lu, h:m:s == %d:%d:%d, d/m/y = %d/%d/%d\n",
+			secs, tm->tm_hour, tm->tm_min, tm->tm_sec,
+*/
+	//printk("PM_DEBUG_MXP: Exit qpnp_rtc_read_time.\n");
 	return 0;
 }
 
@@ -290,6 +305,7 @@ qpnp_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
 	struct rtc_time rtc_tm;
 
+	printk("PM_DEBUG_MXP: Enter qpnp_rtc_set_alarm.\n");
 	rtc_tm_to_time(&alarm->time, &secs);
 
 	/*
@@ -301,7 +317,8 @@ qpnp_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		dev_err(dev, "Unable to read RTC time\n");
 		return -EINVAL;
 	}
-
+	printk("PM_DEBUG_MXP: qpnp_rtc_read_time:rtc_tm.tm_year=%d, rtc_tm.mon=%d, rtc_tm.day=%d\n",rtc_tm.tm_year,rtc_tm.tm_mon,rtc_tm.tm_mday);
+	printk("PM_DEBUG_MXP: qpnp_rtc_read_time:rtc_tm.tm_hour=%d, rtc_tm.min=%d, rtc_tm.sec=%d\n",rtc_tm.tm_hour,rtc_tm.tm_min,rtc_tm.tm_sec);
 	rtc_tm_to_time(&rtc_tm, &secs_rtc);
 	if (secs < secs_rtc) {
 		dev_err(dev, "Trying to set alarm in the past\n");
@@ -336,10 +353,16 @@ qpnp_rtc_set_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 
 	rtc_dd->alarm_ctrl_reg1 = ctrl_reg;
 
-	dev_dbg(dev, "Alarm Set for h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
+	/*dev_dbg(dev, "Alarm Set for h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
 			alarm->time.tm_hour, alarm->time.tm_min,
 			alarm->time.tm_sec, alarm->time.tm_mday,
-			alarm->time.tm_mon, alarm->time.tm_year);
+*/
+			
+	printk("PM_DEBUG_MXP: Alarm Set for h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
+			alarm->time.tm_hour, alarm->time.tm_min,
+			alarm->time.tm_sec, alarm->time.tm_mday,
+			alarm->time.tm_mon, alarm->time.tm_year);	
+	printk("PM_DEBUG_MXP: Exit qpnp_rtc_set_alarm.\n");
 rtc_rw_fail:
 	spin_unlock_irqrestore(&rtc_dd->alarm_ctrl_lock, irq_flags);
 	return rc;
@@ -353,6 +376,7 @@ qpnp_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 	unsigned long secs;
 	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
 
+	//printk("PM_DEBUG_MXP: Enter qpnp_rtc_read_alarm.\n");
 	rc = qpnp_read_wrapper(rtc_dd, value,
 				rtc_dd->alarm_base + REG_OFFSET_ALARM_RW,
 				NUM_8_BIT_RTC_REGS);
@@ -370,11 +394,15 @@ qpnp_rtc_read_alarm(struct device *dev, struct rtc_wkalrm *alarm)
 		return rc;
 	}
 
-	dev_dbg(dev, "Alarm set for - h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
+	/*dev_dbg(dev, "Alarm set for - h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
 		alarm->time.tm_hour, alarm->time.tm_min,
 				alarm->time.tm_sec, alarm->time.tm_mday,
-				alarm->time.tm_mon, alarm->time.tm_year);
-
+*/
+	/*printk("PM_DEBUG_MXP: Read Alarm set for - h:r:s=%d:%d:%d, d/m/y=%d/%d/%d\n",
+		alarm->time.tm_hour, alarm->time.tm_min,
+				alarm->time.tm_sec, alarm->time.tm_mday,
+*/			
+	//printk("PM_DEBUG_MXP: Exit qpnp_rtc_read_alarm.\n");
 	return 0;
 }
 
@@ -386,12 +414,15 @@ qpnp_rtc_alarm_irq_enable(struct device *dev, unsigned int enabled)
 	unsigned long irq_flags;
 	struct qpnp_rtc *rtc_dd = dev_get_drvdata(dev);
 	u8 ctrl_reg;
+	u8 value[4] = {0};
 
+	//printk("PM_DEBUG_MXP: Enter qpnp_rtc_alarm_irq_enable.\n");
 	spin_lock_irqsave(&rtc_dd->alarm_ctrl_lock, irq_flags);
 	ctrl_reg = rtc_dd->alarm_ctrl_reg1;
 	ctrl_reg = enabled ? (ctrl_reg | BIT_RTC_ALARM_ENABLE) :
 				(ctrl_reg & ~BIT_RTC_ALARM_ENABLE);
 
+	//printk("PM_DEBUG_MXP: enable_flag ---> ctrl_reg = %d.\n",ctrl_reg);
 	rc = qpnp_write_wrapper(rtc_dd, &ctrl_reg,
 			rtc_dd->alarm_base + REG_OFFSET_ALARM_CTRL1, 1);
 	if (rc) {
@@ -401,6 +432,16 @@ qpnp_rtc_alarm_irq_enable(struct device *dev, unsigned int enabled)
 
 	rtc_dd->alarm_ctrl_reg1 = ctrl_reg;
 
+	//[ECID:0000]ZTEBSP maxiaoping 20140628 for RTC_alarm,start.
+*/
+	if (!enabled) {
+		rc = qpnp_write_wrapper(rtc_dd, value,
+			rtc_dd->alarm_base + REG_OFFSET_ALARM_RW,
+			NUM_8_BIT_RTC_REGS);
+		if (rc)
+			dev_err(dev, "Clear ALARM value reg failed\n");
+	}
+	//[ECID:0000]ZTEBSP maxiaoping 20140628 for RTC_alarm,end.
 rtc_rw_fail:
 	spin_unlock_irqrestore(&rtc_dd->alarm_ctrl_lock, irq_flags);
 	return rc;
@@ -452,6 +493,41 @@ rtc_alarm_handled:
 	return IRQ_HANDLED;
 }
 
+
+//ZTEBSP zhangji 20131122 for alarm in power off charging,start
+int qpnp_get_alarm_status(struct device*dev)
+{
+	struct rtc_wkalrm   zte_rtc_now_time;
+	struct rtc_wkalrm   zte_rtc_now_alarm;
+	unsigned long temp = 100;
+	unsigned long rtcalarm_time;
+	unsigned long now_time;
+
+
+	qpnp_rtc_read_time(dev,&zte_rtc_now_time.time);
+       rtc_tm_to_time(&zte_rtc_now_time.time,&now_time);
+	//printk("zhangji qpnp_rtc_read_time is %ld\n",now_time);
+
+       qpnp_rtc_read_alarm(dev,&zte_rtc_now_alarm);
+	rtc_tm_to_time(&zte_rtc_now_alarm.time,&rtcalarm_time);  
+	//printk("zhangji qpnp_rtc_read_alarm is %ld\n",rtcalarm_time);
+
+    if (rtcalarm_time>=now_time)
+    	{
+    	   temp = rtcalarm_time - now_time;
+    	}
+	else
+	{
+          temp=   now_time - rtcalarm_time;
+	}
+     //printk("zhangji the temp is %ld\n",temp);
+     if(temp<10)
+	 	return 1;
+     else
+	 	return 0;
+}
+//ZTEBSP zhangji 20131122 for alarm in power off charging,end
+
 static int __devinit qpnp_rtc_probe(struct spmi_device *spmi)
 {
 	int rc;
@@ -460,6 +536,7 @@ static int __devinit qpnp_rtc_probe(struct spmi_device *spmi)
 	struct resource *resource;
 	struct spmi_resource *spmi_resource;
 
+	printk("PM_DEBUG_MXP: Enter qpnp_rtc_probe.\n");
 	rtc_dd = devm_kzalloc(&spmi->dev, sizeof(*rtc_dd), GFP_KERNEL);
 	if (rtc_dd == NULL) {
 		dev_err(&spmi->dev, "Unable to allocate memory!\n");
@@ -474,7 +551,7 @@ static int __devinit qpnp_rtc_probe(struct spmi_device *spmi)
 			"Error reading rtc_write_enable property %d\n", rc);
 		return rc;
 	}
-
+	printk("PM_DEBUG_MXP: rtc_dd->rtc_write_enable = %d.\n",rtc_dd->rtc_write_enable);
 	rc = of_property_read_u32(spmi->dev.of_node,
 						"qcom,qpnp-rtc-alarm-pwrup",
 						&rtc_dd->rtc_alarm_powerup);
@@ -483,7 +560,7 @@ static int __devinit qpnp_rtc_probe(struct spmi_device *spmi)
 			"Error reading rtc_alarm_powerup property %d\n", rc);
 		return rc;
 	}
-
+	printk("PM_DEBUG_MXP: rtc_dd->rtc_alarm_powerup = %d.\n",rtc_dd->rtc_alarm_powerup);
 	/* Initialise spinlock to protect RTC control register */
 	spin_lock_init(&rtc_dd->alarm_ctrl_lock);
 
@@ -596,10 +673,8 @@ static int __devinit qpnp_rtc_probe(struct spmi_device *spmi)
 	device_init_wakeup(&spmi->dev, 1);
 	enable_irq_wake(rtc_dd->rtc_alarm_irq);
 
-	qpnp_rtc_alarm_irq_enable(&spmi->dev, 0); 
-
 	dev_dbg(&spmi->dev, "Probe success !!\n");
-
+	printk("PM_DEBUG_MXP: Exit qpnp_rtc_probe.\n");
 	return 0;
 
 fail_req_irq:

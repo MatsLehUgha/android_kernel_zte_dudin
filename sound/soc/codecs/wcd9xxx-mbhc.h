@@ -242,6 +242,9 @@ struct wcd9xxx_mbhc_config {
 	unsigned long micbias_enable_flags;
 	/* swap_gnd_mic returns true if extern GND/MIC swap switch toggled */
 	bool (*swap_gnd_mic) (struct snd_soc_codec *);
+	#if defined(CONFIG_USE_FEATURE_FSA8049)
+	bool (*swap_gnd_mic_fsa8049) (struct snd_soc_codec *,int );
+	#endif
 	unsigned long cs_enable_flags;
 	bool use_int_rbias;
 	bool do_recalibration;
@@ -313,6 +316,10 @@ struct wcd9xxx_mbhc {
 
 	struct delayed_work mbhc_insert_dwork;
 
+	#if defined(CONFIG_USE_FEATURE_FSA8049)
+	struct delayed_work mbhc_FSA8049_dwork;
+	struct work_struct delay_work;
+	#endif
 	u8 current_plug;
 	struct work_struct correct_plug_swch;
 	/*

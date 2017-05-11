@@ -1088,15 +1088,6 @@ config USB_MAC
          CDROM IN MAC OS
 	 support to the android gadget. 
 #ztebsp zhangjing add for mac cdrom  20130502
-
-#/**  ZTE_MODIFY  zhangjing add for one udisk 2014-5-8  start*/
-config USB_ONE_MS
-    bool  "USB_ONE_MS"
-    help
-         ONLY ONE UDISK
-	 support to the android gadget.
-#/**  ZTE_MODIFY  zhangjing add for one udisk 2014-5-8 end */
-
 #ztebsp zhangjing add for at port,++,20130313
 config USB_AT
        boolean "ADD AT USB PORT"

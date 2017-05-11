@@ -16,7 +16,7 @@
 #include "msm_camera_i2c_mux.h"
 #include "msm_cci.h"
 
-//#define CONFIG_MSM_CAMERA_DT_DEBUG
+/*#define CONFIG_MSM_CAMERA_DT_DEBUG*/
 #undef CDBG
 #ifdef CONFIG_MSM_CAMERA_DT_DEBUG
 #define CDBG(fmt, args...) pr_err(fmt, ##args)
@@ -736,11 +736,11 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 	if (of_property_read_bool(of_node, "qcom,gpio-vdig") == true) {
 		rc = of_property_read_u32(of_node, "qcom,gpio-vdig", &val);
 		if (rc < 0) {
-			pr_err("%s:%d read qcom,gpio-vdig failed rc %d\n",
+			pr_err("%s:%d read qcom,gpio-reset failed rc %d\n",
 				__func__, __LINE__, rc);
 			goto ERROR;
 		} else if (val >= gpio_array_size) {
-			pr_err("%s:%d qcom,gpio-vdig invalid %d\n",
+			pr_err("%s:%d qcom,gpio-reset invalid %d\n",
 				__func__, __LINE__, val);
 			goto ERROR;
 		}
@@ -751,8 +751,8 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VDIG]);
 	}
 
-
-     if (of_property_read_bool(of_node, "qcom,gpio-vana") == true) {
+       
+	if (of_property_read_bool(of_node, "qcom,gpio-vana") == true) {
 		rc = of_property_read_u32(of_node, "qcom,gpio-vana", &val);
 		if (rc < 0) {
 			pr_err("%s:%d read qcom,gpio-vana failed rc %d\n",
@@ -770,8 +770,7 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VANA]);
 	}
 
-	 
-	 if (of_property_read_bool(of_node, "qcom,gpio-vaf") == true) {
+	if (of_property_read_bool(of_node, "qcom,gpio-vaf") == true) {
 		rc = of_property_read_u32(of_node, "qcom,gpio-vaf", &val);
 		if (rc < 0) {
 			pr_err("%s:%d read qcom,gpio-vaf failed rc %d\n",
@@ -788,7 +787,25 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 		CDBG("%s qcom,gpio-vaf %d\n", __func__,
 			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VAF]);
 	}
-	
+    
+	if (of_property_read_bool(of_node, "qcom,gpio-vio") == true) {
+		rc = of_property_read_u32(of_node, "qcom,gpio-vio", &val);
+		if (rc < 0) {
+			pr_err("%s:%d read qcom,gpio-vio failed rc %d\n",
+				__func__, __LINE__, rc);
+			goto ERROR;
+		} else if (val >= gpio_array_size) {
+			pr_err("%s:%d qcom,gpio-vio invalid %d\n",
+				__func__, __LINE__, val);
+			goto ERROR;
+		}
+		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VIO] =
+			gpio_array[val];
+		gconf->gpio_num_info->valid[SENSOR_GPIO_VIO] = 1;
+		CDBG("%s qcom,gpio-vio %d\n", __func__,
+			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_VIO]);
+	}
+      
 
 	if (of_property_read_bool(of_node, "qcom,gpio-reset") == true) {
 		rc = of_property_read_u32(of_node, "qcom,gpio-reset", &val);
@@ -822,7 +839,7 @@ int msm_camera_init_gpio_pin_tbl(struct device_node *of_node,
 		gconf->gpio_num_info->gpio_num[SENSOR_GPIO_STANDBY] =
 			gpio_array[val];
 		gconf->gpio_num_info->valid[SENSOR_GPIO_STANDBY] = 1;
-		CDBG("%s qcom,gpio-reset %d\n", __func__,
+		CDBG("%s qcom,gpio-standby %d\n", __func__,
 			gconf->gpio_num_info->gpio_num[SENSOR_GPIO_STANDBY]);
 	}
 
@@ -1060,6 +1077,22 @@ int msm_camera_power_up(struct msm_camera_power_ctrl_t *ctrl,
 			CDBG("%s:%d gpio set val %d\n", __func__, __LINE__,
 				ctrl->gpio_conf->gpio_num_info->gpio_num
 				[power_setting->seq_val]);
+
+                    
+                    if (ctrl->gpio_conf->gpio_num_info->gpio_num[power_setting->seq_val] == 69
+                        || ctrl->gpio_conf->gpio_num_info->gpio_num[power_setting->seq_val] == 15
+                        || ctrl->gpio_conf->gpio_num_info->gpio_num[power_setting->seq_val] == 14
+                        || ctrl->gpio_conf->gpio_num_info->gpio_num[power_setting->seq_val] == 64)
+                    {
+                        CDBG("fuyipeng --- set gpio 69");
+                        gpio_tlmm_config(GPIO_CFG(ctrl->gpio_conf->gpio_num_info->gpio_num[power_setting->seq_val], 
+                                        0,
+                        				GPIO_CFG_OUTPUT, GPIO_CFG_PULL_UP,
+                        				GPIO_CFG_2MA), GPIO_CFG_ENABLE);            
+                        gpio_direction_output(ctrl->gpio_conf->gpio_num_info->gpio_num[power_setting->seq_val], 1);
+                    }
+                    
+ 
 			gpio_set_value_cansleep(
 				ctrl->gpio_conf->gpio_num_info->gpio_num
 				[power_setting->seq_val],
@@ -1230,15 +1263,12 @@ int msm_camera_power_down(struct msm_camera_power_ctrl_t *ctrl,
 					SENSOR_GPIO_MAX);
 				continue;
 			}
-			if (!ctrl->gpio_conf->gpio_num_info->valid
-				[pd->seq_val])
-				continue;
+                    
+
 			gpio_set_value_cansleep(
 				ctrl->gpio_conf->gpio_num_info->gpio_num
-				[pd->seq_val],
-				//ctrl->gpio_conf->gpio_num_info->gpio_num
-				//[pd->config_val]);
-				GPIO_OUT_LOW);
+				[pd->seq_val], GPIOF_OUT_INIT_LOW);
+                    // zte-modify, fuyipeng modify for power down ---
 			break;
 		case SENSOR_VREG:
 			if (pd->seq_val >= CAM_VREG_MAX) {

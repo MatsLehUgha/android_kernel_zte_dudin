@@ -11,6 +11,7 @@
  *
  */
 #include "msm_sensor.h"
+#include <linux/proc_fs.h>
 
 #define OV5648_SENSOR_NAME "ov5648"
 DEFINE_MSM_MUTEX(ov5648_mut);
@@ -36,12 +37,20 @@ static struct msm_sensor_power_setting ov5648_power_setting[] = {
 		.config_val = GPIO_OUT_HIGH,
 		.delay = 5,
 	},
+
 	{
-		.seq_type = SENSOR_VREG,
-		.seq_val = CAM_VANA,
-		.config_val = 0,
+		.seq_type = SENSOR_GPIO,
+		.seq_val = SENSOR_GPIO_VANA,
+		.config_val = GPIO_OUT_LOW,
 		.delay = 5,
 	},
+	{
+		.seq_type = SENSOR_GPIO,
+		.seq_val = SENSOR_GPIO_VANA,
+		.config_val = GPIO_OUT_HIGH,
+		.delay = 5,
+	},
+
 	{
 		.seq_type = SENSOR_GPIO,
 		.seq_val = SENSOR_GPIO_STANDBY,
@@ -95,10 +104,35 @@ static const struct i2c_device_id ov5648_i2c_id[] = {
 	{ }
 };
 
+static ssize_t ov5648_camera_id_read_proc(char *page,char **start,off_t off,int count,int *eof,void* data)
+{		 	
+    int ret;
+	
+    unsigned char *camera_status = "FRONT Camera ID: ov5648 5M";
+    ret = strlen(camera_status);
+    sprintf(page,"%s\n",camera_status);	 	 
+    return (ret + 1);	
+}
+
+static void ov5648_camera_proc_file(void)
+{
+    struct proc_dir_entry *proc_file  = create_proc_entry("driver/camera_id_front",0644,NULL);
+    if(proc_file)
+     {
+  	     proc_file->read_proc = ov5648_camera_id_read_proc;			
+     }	
+    else
+     {
+        printk(KERN_INFO "camera_proc_file error!\r\n");	
+     }
+}
+
 static int32_t msm_ov5648_i2c_probe(struct i2c_client *client,
 	const struct i2c_device_id *id)
 {
-	return msm_sensor_i2c_probe(client, id, &ov5648_s_ctrl);
+    
+    return msm_sensor_i2c_probe(client, id, &ov5648_s_ctrl);
+
 }
 
 static struct i2c_driver ov5648_i2c_driver = {
@@ -149,6 +183,14 @@ static int32_t ov5648_platform_probe(struct platform_device *pdev)
 
 	match = of_match_device(ov5648_dt_match, &pdev->dev);
 	rc = msm_sensor_platform_probe(pdev, match->data);
+
+    
+    if (rc == 0)
+    {
+        ov5648_camera_proc_file();
+    }
+    
+  
 	return rc;
 }
 

@@ -17,35 +17,47 @@
 		status = "ok";
 	};
 
-        i2c@f9925000 { /* BLSP1 QUP3 */
-                nfc-nci@0e {
-                        compatible = "qcom,nfc-nci";
-                        reg = <0x0e>;
-                        qcom,irq-gpio = <&msmgpio 21 0x00>;
-                        qcom,dis-gpio = <&msmgpio 20 0x00>;
-                        qcom,clk-src = "BBCLK2";
-                        qcom,clk-en-gpio = <&msmgpio 0 0x00>;
-                        interrupt-parent = <&msmgpio>;
-                        interrupts = <21 0>;
-                        qcom,clk-gpio = <&pm8226_gpios 3 0>;
-                };
-        };
-
 	i2c@f9927000 { /* BLSP1 QUP5 */
-		synaptics@22 {
-			compatible = "synaptics,syna-ts";
+		synaptics_dsx@22 {
+			compatible = "synaptics,dsx";
 			reg = <0x22>;
 			interrupt-parent = <&msmgpio>;
 			interrupts = <17 0x2008>;
-			synaptics,max_y = <136>;
+			vdd_ana-supply = <&pm8226_l19>;
+			vcc_i2c-supply = <&pm8226_lvs1>;
+			synaptics,pwr-reg-name = "vdd_ana";
+			synaptics,bus-reg-name = "vcc_i2c";
+			synaptics,irq-gpio = <&msmgpio 17 0x2008>;
+			synaptics,reset-gpio = <&msmgpio 16 0x00>;
+			synaptics,irq-flags = <0x2008>;
+			/*synaptics,x-flip = <0>;*/
+			/*synaptics,y-flip = <0>;*/
+			synaptics,power-delay-ms = <160>;
+			synaptics,reset-delay-ms = <200>;
+			synaptics,reset-active-ms = <20>;
+			synaptics,reset-on-state = <0>;
+			synaptics,cap-button-codes = <158 172 139>;
+			/*synaptics,max-y-for-2d = <800>; /* remove if no virtual buttons */
+			/*synaptics,vir-button-codes = <102 100 900 100 60 158 300 900 100 60>;*/
+		};
+
+		goodix@5d {
+			compatible = "goodix,Goodix-TS";
+			reg = <0x5d>;
+			interrupt-parent = <&msmgpio>;
+			interrupts = <17 0x2008>;
 			vdd-supply = <&pm8226_l19>;
 			vcc_i2c-supply = <&pm8226_lvs1>;
-			synaptics,reset-gpio = <&msmgpio 16 0x00>;
-			synaptics,irq-gpio = <&msmgpio 17 0x2008>;
-			synaptics,button-map = <158 172 139>;
-			synaptics,i2c-pull-up;
-			synaptics,power-down;
-			synaptics,disable-gpios;
+
+			reset-gpios = <&msmgpio 16 0x00>;
+			interrupt-gpios = <&msmgpio 17 0x2008>;
+			goodix,display-coords = <0 0 720 1280>;
+			goodix,panel-coords = <0 0 720 1280>;
+			goodix,button-map= <158 172 139>;
+			goodix,family-id = <0x0>;
+			goodix,no-force-update;
+			goodix,i2c-pull-up;
+
 		};
 
 		focaltech@38 {
@@ -77,14 +89,29 @@
 			focaltech,fw-delay-era-flsh-ms = <2000>;
 		};
 	};
-
+	/*zte-modify by zuojianfang for nfc begin*/
+   	i2c@f9925000 {	
+		nfc_pn544@28{
+			compatible = "nxp,pn544";
+			reg = <0x28>;
+			interrupt-parent = <&msmgpio>;
+			vlogic-supply = <&pm8226_l22>;
+			interrupts = <21 0x2>;
+			nfc,irq_gpio = <&msmgpio 21 0>;
+			nfc,firm_gpio = <&msmgpio 22 0>;
+			nfc,ven_gpio = <&msmgpio 20 0>;
+			nfc,int_active_low = <0>;
+		};
+	};	
+    /*zte-modify by zuojianfang for nfc end*/
+	
 	gen-vkeys {
 		compatible = "qcom,gen-vkeys";
-		label = "syna-touchscreen";
+		label = "synaptics_dsx";
 		qcom,disp-maxx = <720>;
 		qcom,disp-maxy = <1280>;
 		qcom,panel-maxx = <720>;
-		qcom,panel-maxy = <1432>;
+		qcom,panel-maxy = <1346>;
 		qcom,key-codes = <158 172 139>;
 		qcom,y-offset = <2>;
 	};
@@ -155,6 +182,8 @@
 			"LDO_H", "MCLK",
 			"SPK_OUT", "MCLK",
 			"SPK_OUT", "EXT_VDD_SPKR",
+			"Lineout_1 amp", "LINEOUT1",
+            "Lineout_2 amp", "LINEOUT2",
 			"AMIC1", "MIC BIAS1 External",
 			"MIC BIAS1 External", "Handset Mic",
 			"AMIC2", "MIC BIAS2 External",
@@ -166,7 +195,8 @@
 
 		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
 		/*qcom,cdc-vdd-spkr-gpios = <&pm8226_gpios 2 0>;*//*jiaobaocun modified*/
-		/*qcom,cdc-us-euro-gpios = <&msmgpio 69 0>;*//*jiaobaocun modified*/
+		qcom,cdc-lineout-spkr-gpios = <&msmgpio 34 0>;/*jiaobaocun added*/
+		qcom,cdc-us-euro-gpios_fsa8049 = <&msmgpio 67 0>;/*jiaobaocun modified*/
 	};
 
 	sound-9302 {
@@ -175,6 +205,8 @@
 			"LDO_H", "MCLK",
 			"SPK_OUT", "MCLK",
 			"SPK_OUT", "EXT_VDD_SPKR",
+			"Lineout_1 amp", "LINEOUT1",
+			"Lineout_2 amp", "LINEOUT2",
 			"AMIC1", "MIC BIAS1 External",
 			"MIC BIAS1 External", "Handset Mic",
 			"AMIC2", "MIC BIAS2 External",
@@ -184,26 +216,10 @@
 
 		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
 		/*qcom,cdc-vdd-spkr-gpios = <&pm8226_gpios 2 0>;*//*jiaobaocun modified*/
-		/*qcom,cdc-us-euro-gpios = <&msmgpio 69 0>;*//*jiaobaocun modified*/
+		qcom,cdc-lineout-spkr-gpios = <&msmgpio 34 0>;/*jiaobaocun added*/
+		qcom,cdc-us-euro-gpios_fsa8049 = <&msmgpio 67 0>;/*jiaobaocun modified*/
 	};
 };
-
-/**   ZTE_MODIFY  zhangjing add for otg 2014-4-21 */
-&usb_otg {
-	#address-cells = <0>;
-	interrupt-parent = <&usb_otg>;
-	interrupts = <0 1 2>;
-	#interrupt-cells = <1>;
-	interrupt-map-mask = <0xffffffff>;
-	interrupt-map = <0 &intc 0 134 0
-			1 &intc 0 140 0
-			2 &spmi_bus 0x0 0x0 0x9 0x0>;
-	interrupt-names = "core_irq", "async_irq", "pmic_id_irq";
-
-	qcom,hsusb-otg-mode = <3>;
-	vbus_otg-supply = <&pm8226_chg_otg>;
-};
-
 
 &sdcc1 {
 	vdd-supply = <&pm8226_l17>;
@@ -297,7 +313,7 @@
 
 	qcom,pad-pull-on = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
 	qcom,pad-pull-off = <0x0 0x3 0x3>; /* no-pull, pull-up, pull-up */
-	qcom,pad-drv-on = <0x7 0x4 0x4>; /* 16mA, 10mA, 10mA */ /*ZTE_MODIFY change drive strength*/
+	qcom,pad-drv-on = <0x4 0x4 0x4>; /* 10mA, 10mA, 10mA */
 	qcom,pad-drv-off = <0x0 0x0 0x0>; /* 2mA, 2mA, 2mA */
 
 	qcom,clk-rates = <400000 25000000 50000000>;
@@ -430,33 +446,37 @@
 		qcom,rpull-up-kohm = <100>;
 		qcom,vref-batt-therm = <1800000>;
 
-		/include/ "batterydata-qrd-4v35-2300mah.dtsi" /*ZTE_MODIFY zhangbo change*/
+		/include/ "batterydata-qrd-4v35-2000mah.dtsi"
 	};
 };
-
+/*maxiaoping 20131231 for bms,start*/
 &pm8226_bms {
 	status = "okay";
 	qcom,enable-fcc-learning;
-	qcom,use-external-rsense; //ZTE_MODIFY zhangbo add
 	qcom,min-fcc-learning-soc = <20>;
 	qcom,min-fcc-ocv-pc = <30>;
 	qcom,min-fcc-learning-samples = <5>;
 	qcom,fcc-resolution = <10>;
-	qcom,battery-data = <&qrd_batterydata>;
-	/*ZTE_MODIFY zhangbo add, start*/
+	/*qcom,battery-data = <&qrd_batterydata>;*/
 	qcom,max-voltage-uv = <4350000>;
 	qcom,low-soc-calculate-soc-ms = <60000>;
 	qcom,calculate-soc-ms = <120000>;
 	qcom,low-voltage-threshold = <3550000>;
-	/*ZTE_MODIFY zhangbo add, end*/
 };
+/*maxiaoping 20131231 for bms,end*/
 
+/*maxiaoping 20140104 for charger,start*/
 &pm8226_chg {
 	status = "okay";
 	qcom,battery-data = <&qrd_batterydata>;
-	qcom,tchg-mins = <420>; /*ZTE_MODIFY zhangbo change to 7 hours*/
+	qcom,vddmax-mv = <4350>;/**/
+	qcom,vddsafe-mv = <4380>;
+	qcom,vinmin-mv = <4350>;
+	qcom,vbatweak-mv = <3400>;/*maxiaoping 20131227 change the Vbat_weak to 3.4V*/
+	qcom,tchg-mins = <420>;
 	qcom,ovp-monitor-en;
 };
+/*maxiaoping 20140104 for charger,end*/
 
 &pm8226_gpios {
 	gpio@c000 { /* GPIO 1 */
@@ -479,9 +499,16 @@
 		qcom,src-sel = <2>;
 		qcom,master-en = <1>;
 	};
-
+	
+    /* wangjianping 20140107 added for NFC clock request func, start */
 	gpio@c200 { /* GPIO 3 */
-	};
+		qcom,mode = <0>; /* QPNP_PIN_MODE_DIG_IN */
+		qcom,pull = <0>; /*QPNP_PIN_PULL_UP_30*/
+		qcom,vin-sel = <2>; /* QPNP_PIN_VIN2 = S3 = 1.8V */
+		qcom,src-sel = <0>; /* QPNP_PIN_SEL_FUNC_CONSTANT */
+		qcom,master-en = <1>; /*Enable GPIO*/	
+	};	
+    /* wangjianping 20140107 added for NFC clock request func, end */
 
 	gpio@c300 { /* GPIO 4 */
 	};

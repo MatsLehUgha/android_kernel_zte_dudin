@@ -27,7 +27,7 @@
 #include <asm/mach-types.h>
 #include <mach/socinfo.h>
 #include <mach/subsystem_notif.h>
-#include "qdsp6v2/msm-pcm-routing-v2.h"
+#include <qdsp6v2/msm-pcm-routing-v2.h>
 #include "qdsp6v2/q6core.h"
 #include "../codecs/wcd9xxx-common.h"
 #include "../codecs/wcd9306.h"
@@ -96,11 +96,13 @@ static struct wcd9xxx_mbhc_config mbhc_cfg = {
 	.micbias_enable_flags = 1 << MBHC_MICBIAS_ENABLE_THRESHOLD_HEADSET,
 	.insert_detect = true,
 	.swap_gnd_mic = NULL,
-	.cs_enable_flags = 0,//wangxiumei mod to 0
-    /*(1 << MBHC_CS_ENABLE_POLLING |
+	#if defined(CONFIG_USE_FEATURE_FSA8049)
+	.swap_gnd_mic_fsa8049 = NULL,
+	#endif
+	.cs_enable_flags = (1 << MBHC_CS_ENABLE_POLLING |
 			    1 << MBHC_CS_ENABLE_INSERTION |
 			    1 << MBHC_CS_ENABLE_REMOVAL |
-			    1 << MBHC_CS_ENABLE_DET_ANC),*/
+			    1 << MBHC_CS_ENABLE_DET_ANC),
 	.do_recalibration = true,
 	.use_vddio_meas = true,
 	.enable_anc_mic_detect = false,
@@ -162,6 +164,14 @@ static int msm_proxy_rx_ch = 2;
 
 static int slim0_rx_sample_rate = SAMPLING_RATE_48KHZ;
 static int slim0_rx_bit_format = SNDRV_PCM_FORMAT_S16_LE;
+
+#if defined(CONFIG_USE_ONELINE_EXTERNEL_SPK_PA)
+u32 hr_spk_enable = 0;
+int loop_times = 0;
+int oneline_pa_mode =3;
+static struct hrtimer timer;
+static struct mutex oneline_mlock;
+#endif
 
 static inline int param_is_mask(int p)
 {
@@ -247,11 +257,36 @@ static int msm8226_mclk_event(struct snd_soc_dapm_widget *w,
 	return 0;
 }
 
+#if defined(CONFIG_USE_ONELINE_EXTERNEL_SPK_PA)
+enum hrtimer_restart oneline_timer_func(struct hrtimer *timer)
+{
+	mutex_lock(&oneline_mlock);
+	gpio_direction_output(ext_spk_amp_gpio, hr_spk_enable);
+	hr_spk_enable = !hr_spk_enable;
+	if(loop_times == 0){
+		mutex_unlock(&oneline_mlock);
+		return HRTIMER_NORESTART;
+		}
+	else{
+		loop_times--;
+		mutex_unlock(&oneline_mlock);
+		return HRTIMER_RESTART;		
+		}
+}
+#endif
 static void msm8226_ext_spk_power_amp_enable(u32 enable)
 {
 	if (enable) {
+	
+	#if defined(CONFIG_USE_ONELINE_EXTERNEL_SPK_PA)
+		usleep_range(10000,10000);
+		hr_spk_enable = enable;
+		loop_times = oneline_pa_mode+1;
+		hrtimer_start(&timer, ktime_set(0, 2000), HRTIMER_MODE_REL);
+	#else
 		gpio_direction_output(ext_spk_amp_gpio, enable);
-		/* time takes enable the external power amplifier */
+	#endif
+	
 		usleep_range(EXT_CLASS_D_EN_DELAY,
 			EXT_CLASS_D_EN_DELAY + EXT_CLASS_D_DELAY_DELTA);
 	} else {
@@ -1075,7 +1110,7 @@ void *def_tapan_mbhc_cal(void)
 #undef S
 #define S(X, Y) ((WCD9XXX_MBHC_CAL_PLUG_TYPE_PTR(tapan_cal)->X) = (Y))
 	S(v_no_mic, 30);
-	S(v_hs_max, 2700);//S(v_hs_max, 2800);//wangxiumei mod 2450 to 2800
+	S(v_hs_max, 2800);
 #undef S
 #define S(X, Y) ((WCD9XXX_MBHC_CAL_BTN_DET_PTR(tapan_cal)->X) = (Y))
 	S(c[0], 62);
@@ -1093,8 +1128,6 @@ void *def_tapan_mbhc_cal(void)
 	btn_low = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_V_BTN_LOW);
 	btn_high = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg,
 					       MBHC_BTN_DET_V_BTN_HIGH);
-    //wangxiumei mod
-    /*
 	btn_low[0] = -50;
 	btn_high[0] = 20;
 	btn_low[1] = 21;
@@ -1111,24 +1144,6 @@ void *def_tapan_mbhc_cal(void)
 	btn_high[6] = 269;
 	btn_low[7] = 270;
 	btn_high[7] = 500;
-*/
-    btn_low[0] = -75;//weiguohua modify it temp  20140623
-	btn_high[0] = 20;
-	btn_low[1] = 21;
-	btn_high[1] = 52;
-	btn_low[2] = 53;
-	btn_high[2] = 94;
-	btn_low[3] = 95;
-	btn_high[3] = 133;
-	btn_low[4] = 134;
-	btn_high[4] = 171;
-	btn_low[5] = 172;
-	btn_high[5] = 208;
-	btn_low[6] = 209;
-	btn_high[6] = 244;
-	btn_low[7] = 245;
-	btn_high[7] = 330;
-    //wangxiumei mod    
 	n_ready = wcd9xxx_mbhc_cal_btn_det_mp(btn_cfg, MBHC_BTN_DET_N_READY);
 	n_ready[0] = 80;
 	n_ready[1] = 12;
@@ -2209,29 +2224,62 @@ static int msm8226_prepare_codec_mclk(struct snd_soc_card *card)
 	}
 	return 0;
 }
+#if defined(CONFIG_USE_FEATURE_FSA8049)
+static bool msm8226_swap_gnd_mic_fsa8049(struct snd_soc_codec *codec,int value)
+{
+	struct snd_soc_card *card = codec->card;
+	struct msm8226_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
+	
+	pr_err("%s: jiaobaocun swap select switch  to %d\n", __func__, value);
+	gpio_direction_output(pdata->us_euro_gpio, value);
 
+	return true;
+}
+#else
 static bool msm8226_swap_gnd_mic(struct snd_soc_codec *codec)
 {
 	struct snd_soc_card *card = codec->card;
 	struct msm8226_asoc_mach_data *pdata = snd_soc_card_get_drvdata(card);
 	int value = gpio_get_value_cansleep(pdata->us_euro_gpio);
 
-	pr_debug("%s: swap select switch %d to %d\n", __func__, value, !value);
+	pr_err("%s: jiaobaocun swap select switch %d to %d\n", __func__, value, !value);
 	gpio_direction_output(pdata->us_euro_gpio, !value);
 
 	return true;
 }
-
+#endif
 static int msm8226_setup_hs_jack(struct platform_device *pdev,
 		struct msm8226_asoc_mach_data *pdata)
 {
 	int rc;
-
+	#if defined(CONFIG_USE_FEATURE_FSA8049)
+	pdata->us_euro_gpio = of_get_named_gpio(pdev->dev.of_node,
+				"qcom,cdc-us-euro-gpios_fsa8049", 0);
+	pr_err("jiaobaocun pdata->us_euro_gpio=%d\n",pdata->us_euro_gpio);
+	if ((long)(pdata->us_euro_gpio) < 0) {
+		dev_err(&pdev->dev,
+			"jiaobaocun property %s in node %s not found %d\n",
+			"qcom,cdc-us-euro-gpios", pdev->dev.of_node->full_name,
+			pdata->us_euro_gpio);
+	} else {
+		rc = gpio_request(pdata->us_euro_gpio,
+						  "TAPAN_CODEC_US_EURO_GPIO");
+		if (rc) {
+			dev_err(&pdev->dev,
+				"%s: Failed to request tapan us-euro gpio %d\n",
+				__func__, pdata->us_euro_gpio);
+		} else {
+				mbhc_cfg.swap_gnd_mic_fsa8049 = msm8226_swap_gnd_mic_fsa8049;
+				mbhc_cfg.swap_gnd_mic = NULL;
+		}
+	}
+      #else
 	pdata->us_euro_gpio = of_get_named_gpio(pdev->dev.of_node,
 				"qcom,cdc-us-euro-gpios", 0);
-	if (pdata->us_euro_gpio < 0) {
-		dev_dbg(&pdev->dev,
-			"property %s in node %s not found %d\n",
+	pr_err("jiaobaocun pdata->us_euro_gpio=%d\n",pdata->us_euro_gpio);
+	if ((long)(pdata->us_euro_gpio) < 0) {
+		dev_err(&pdev->dev,
+			"jiaobaocun property %s in node %s not found %d\n",
 			"qcom,cdc-us-euro-gpios", pdev->dev.of_node->full_name,
 			pdata->us_euro_gpio);
 	} else {
@@ -2245,6 +2293,7 @@ static int msm8226_setup_hs_jack(struct platform_device *pdev,
 			mbhc_cfg.swap_gnd_mic = msm8226_swap_gnd_mic;
 		}
 	}
+	#endif
 	return 0;
 }
 
@@ -2398,8 +2447,8 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 	vdd_spkr_gpio = of_get_named_gpio(pdev->dev.of_node,
 				"qcom,cdc-vdd-spkr-gpios", 0);
 	if (vdd_spkr_gpio < 0) {
-		dev_dbg(&pdev->dev,
-			"Looking up %s property in node %s failed %d\n",
+		dev_err(&pdev->dev,
+			"jiaobaocun Looking up %s property in node %s failed %d\n",
 			"qcom, cdc-vdd-spkr-gpios",
 			pdev->dev.of_node->full_name, vdd_spkr_gpio);
 	} else {
@@ -2412,7 +2461,12 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 			goto err;
 		}
 	}
-
+	#if defined(CONFIG_USE_ONELINE_EXTERNEL_SPK_PA)
+	
+	hrtimer_init(&timer, CLOCK_MONOTONIC, HRTIMER_MODE_REL);
+	timer.function = oneline_timer_func;
+	mutex_init(&oneline_mlock);
+	#endif
 	ext_spk_amp_gpio = of_get_named_gpio(pdev->dev.of_node,
 			"qcom,cdc-lineout-spkr-gpios", 0);
 	if (ext_spk_amp_gpio < 0) {
@@ -2429,6 +2483,9 @@ static __devinit int msm8226_asoc_machine_probe(struct platform_device *pdev)
 				"%s: Failed to request tapan amp spkr gpio %d\n",
 				__func__, ext_spk_amp_gpio);
 			goto err_vdd_spkr;
+		}
+		else{
+			pr_err("%s: ext_spk_amp_gpio request successed!\n",__func__);
 		}
 	}
 

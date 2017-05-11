@@ -1484,7 +1484,7 @@ void mmc_set_ios(struct mmc_host *host)
 {
 	struct mmc_ios *ios = &host->ios;
 
-	pr_debug("%s: clock %uHz busmode %u powermode %u cs %u Vdd %u "
+	pr_info("%s: clock %uHz busmode %u powermode %u cs %u Vdd %u "
 		"width %u timing %u\n",
 		 mmc_hostname(host), ios->clock, ios->bus_mode,
 		 ios->power_mode, ios->chip_select, ios->vdd,
@@ -1904,15 +1904,15 @@ void mmc_set_driver_type(struct mmc_host *host, unsigned int drv_type)
 void mmc_power_up(struct mmc_host *host)
 {
 	int bit;
-
+       printk(" into mmc_power_up \n");
 	mmc_host_clk_hold(host);
-
+     printk(" into mmc_host_clk_hold \n");
 	/* If ocr is set, we use it */
 	if (host->ocr)
 		bit = ffs(host->ocr) - 1;
 	else
 		bit = fls(host->ocr_avail) - 1;
-
+      printk(" ffs(host->ocr)  \n");
 	host->ios.vdd = bit;
 	if (mmc_host_is_spi(host))
 		host->ios.chip_select = MMC_CS_HIGH;
@@ -1920,29 +1920,31 @@ void mmc_power_up(struct mmc_host *host)
 		host->ios.chip_select = MMC_CS_DONTCARE;
 		host->ios.bus_mode = MMC_BUSMODE_OPENDRAIN;
 	}
+       printk(" mmc_host_is_spi \n");
 	host->ios.power_mode = MMC_POWER_UP;
 	host->ios.bus_width = MMC_BUS_WIDTH_1;
 	host->ios.timing = MMC_TIMING_LEGACY;
 	mmc_set_ios(host);
-
+      printk(" mmc_set_ios \n");
 	/*
 	 * This delay should be sufficient to allow the power supply
 	 * to reach the minimum voltage.
 	 */
 	mmc_delay(10);
-
+      printk(" mmc_delay \n");
 	host->ios.clock = host->f_init;
 
 	host->ios.power_mode = MMC_POWER_ON;
 	mmc_set_ios(host);
-
+      printk(" mmc_set_ios \n");
 	/*
 	 * This delay must be at least 74 clock sizes, or 1 ms, or the
 	 * time required to reach a stable voltage.
 	 */
 	mmc_delay(10);
-
+      printk(" mmc_delay \n");
 	mmc_host_clk_release(host);
+      printk(" mmc_host_clk_release \n");
 }
 
 void mmc_power_off(struct mmc_host *host)
@@ -2033,15 +2035,21 @@ int mmc_resume_bus(struct mmc_host *host)
 
 	printk("%s: Starting deferred resume\n", mmc_hostname(host));
 	spin_lock_irqsave(&host->lock, flags);
+       printk(" spin_lock_irqsave \n");
 	host->bus_resume_flags &= ~MMC_BUSRESUME_NEEDS_RESUME;
 	host->rescan_disable = 0;
 	spin_unlock_irqrestore(&host->lock, flags);
-
+      printk(" spin_unlock_irqrestore \n");
 	mmc_bus_get(host);
+      printk(" mmc_bus_get \n");
 	if (host->bus_ops && !host->bus_dead) {
+             printk(" mmc_bus_get into  if\n");
 		mmc_power_up(host);
+             printk(" mmc_power_up  \n");
 		BUG_ON(!host->bus_ops->resume);
+             printk(" BUG_ON   host->bus_ops->resume \n");
 		host->bus_ops->resume(host);
+             printk(" host->bus_ops->resume \n");
 	}
 
 	mmc_bus_put(host);

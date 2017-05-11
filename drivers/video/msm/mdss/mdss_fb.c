@@ -52,13 +52,13 @@
 #include <mach/msm_memtypes.h>
 
 #include "mdss_fb.h"
-#include "mdss_panel.h" // lijiangshuo add 20140416
 
-/* lijiangshuo add for LCD factory mode 20140430 start */
+
 static struct proc_dir_entry * d_entry;
+extern int panel_id_from_lk;
+static int lcd_debug;
 static char  module_name[50]={"0"};
-extern char LcdPanelName[50];
-/* lijiangshuo add for LCD factory mode 20140430 end */
+
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 #define MDSS_FB_NUM 3
@@ -424,35 +424,97 @@ static void mdss_fb_shutdown(struct platform_device *pdev)
 	unlock_fb_info(mfd->fbi);
 }
 
-/* lijiangshuo add for LCD factory mode 20140430 start */
-static int init_lcd_proc_done = 0; // lijiangshuo add for LCD factory mode 20140505
 static int msm_lcd_read_proc(
         char *page, char **start, off_t off, int count, int *eof, void *data)
 {
 	int len = 0;
-	
-	if (!strncmp(LcdPanelName, YUSHUN_NT35521_720_1280_5P0_P826N33_NAME, strnlen(YUSHUN_NT35521_720_1280_5P0_P826N33_NAME, PANEL_NAME_MAX_LEN)))
-		strcpy(module_name, "IC:NT35521+YUSHUN; Glass:TFT; Resolution:720*1280");
-	else if (!strncmp(LcdPanelName, LEAD_HX8394D_720_1280_5P0_P826N33_NAME, strnlen(LEAD_HX8394D_720_1280_5P0_P826N33_NAME, PANEL_NAME_MAX_LEN)))
-		strcpy(module_name, "IC:HX8394D+LEAD; Glass:TFT; Resolution:720*1280");
-	else
-		strcpy(module_name, "0");
-  
-	len = sprintf(page, "%s\n", module_name);
+    printk("[ZGC]: %s: panel_id_from_lk=%d\n", __func__, panel_id_from_lk);
+	switch(panel_id_from_lk)
+	{
+	    case OTM8018B_LEAD_FWVGA_VIDEO_PANEL:
+			strcpy(module_name,"IC:OTM8018B+LEAD; Glass:TFT; Resolution:480*854");
+			break;
+        case ILI9806E_YASSY_FWVGA_VIDEO_PANEL:
+			strcpy(module_name,"IC:ILI9806E+YASSY; Glass:TFT; Resolution:480*854");
+			break;
+		case OTM9605A_BOOYI_QHD_VIDEO_PANEL:
+			strcpy(module_name,"IC:OTM9605A+BOOYI; Glass:TFT; Resolution:540*960");
+			break;
+        case HX8379_YUSHUN_FWVGA_VIDEO_PANEL:
+			strcpy(module_name,"IC:HX8379+YUSHUN; Glass:TFT; Resolution:480*854");
+			break;
+        case OTM1283A_BOE_720P_VIDEO_PANEL:
+			strcpy(module_name,"IC:OTM1283A+BOE; Glass:BOE; Resolution:720*1280");
+			break;
+        case OTM1283A_AUO_720P_VIDEO_PANEL:
+			strcpy(module_name,"IC:OTM1283A+AUO; Glass:AUO; Resolution:720*1280");
+			break;
+        case NT35590_TIANMA_OTP_720P_VIDEO_PANEL:
+			strcpy(module_name,"IC:NT35590+TIANMA OTP; Glass:TIANMA; Resolution:720*1280");
+			break;
+        case NT35590_TIANMA_720P_VIDEO_PANEL:
+			strcpy(module_name,"IC:NT35590+TIANMA; Glass:TIANMA; Resolution:720*1280");
+			break;
+        case NT35590_AUO_720P_VIDEO_PANEL:
+			strcpy(module_name,"IC:NT35590+AUO; Glass:AUO; Resolution:720*1280");
+			break;
+        case HX8394D_LEAD_720P_5P5_VIDEO_PANEL:
+            strcpy(module_name,"IC:HX8394D+LEAD; Glass:BOE; Resolution:720*1280");
+			break;
+        case HX8394D_TIANMA_720P_5P5_VIDEO_PANEL:
+            strcpy(module_name,"IC:HX8394D+TIANMA; Glass:TIANMA; Resolution:720*1280");
+			break;
+        case R61318A1_YUSHUN_720P_5P5_VIDEO_PANEL:
+            strcpy(module_name,"IC:R61318A1+YUSHUN; Glass:CPT; Resolution:720*1280");
+			break;
+		case LCD_PANEL_MAX:
+		case LCD_PANEL_NOPANEL:
+			break;
+		default:
+			strcpy(module_name,"0");
+		break;
+	}
+    printk("[ZGC]: %s: module_name=%s\n", __func__, module_name);
+    
+	len = sprintf(page, "%s\n",module_name);
 	return len;
+
 }
 
-static void  init_lcd_proc(void)
+static int msm_lcd_write_proc(struct file *file, const char __user *buffer,
+			     unsigned long count, void *data)
 {
-	printk("ljs:init_lcd_proc\n");
+	char tmp[16] = {0};
+	int len = 0;
+	len = count;
+	
+    
+	if (count > sizeof(tmp)) {
+		len = sizeof(tmp) - 1;
+	}
+	if(copy_from_user(tmp, buffer, len))
+                return -EFAULT;
+	if (strstr(tmp, "on")) {
+		lcd_debug = 1;
+	} else if (strstr(tmp, "off")) {
+		lcd_debug = 0;
+	}
+	return count;
+
+}
+
+void  init_lcd_proc(void)
+{
+    printk("[ZGC]:init_lcd_proc\n");
 	d_entry = create_proc_entry("driver/lcd_id",
 				    0, NULL);
     if (d_entry) {
         d_entry->read_proc = msm_lcd_read_proc;
+        d_entry->write_proc = msm_lcd_write_proc;
         d_entry->data = NULL;
      }
 }
-/* lijiangshuo add for LCD factory mode 20140430 end */
+
 
 static int mdss_fb_probe(struct platform_device *pdev)
 {
@@ -490,7 +552,10 @@ static int mdss_fb_probe(struct platform_device *pdev)
 	mfd->ext_ad_ctrl = -1;
 	mfd->bl_level = 0;
 	mfd->bl_scale = 1024;
-	mfd->bl_min_lvl = 30;
+    
+	
+	mfd->bl_min_lvl = 25;
+    
 	mfd->fb_imgType = MDP_RGBA_8888;
 
 	mfd->pdev = pdev;
@@ -506,11 +571,9 @@ static int mdss_fb_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, mfd);
 
-	if(!init_lcd_proc_done) // lijiangshuo add for LCD factory mode 20140505
-	{
-		init_lcd_proc(); //  lijiangshuo add for LCD factory mode 20140430
-		init_lcd_proc_done = 1;
-	}
+    
+    init_lcd_proc();
+    
     
 	rc = mdss_fb_register(mfd);
 	if (rc)
@@ -867,6 +930,9 @@ void mdss_fb_update_backlight(struct msm_fb_data_type *mfd)
 		if ((pdata) && (pdata->set_backlight)) {
 			mutex_lock(&mfd->bl_lock);
 			mfd->bl_level = mfd->unset_bl_level;
+            
+            mdelay(50);
+            
 			pdata->set_backlight(pdata, mfd->bl_level);
 			mfd->bl_level_old = mfd->unset_bl_level;
 			mutex_unlock(&mfd->bl_lock);
@@ -929,6 +995,19 @@ static int mdss_fb_blank_sub(int blank_mode, struct fb_info *info,
 			mfd->panel_power_on = false;
 			mfd->bl_updated = 0;
 
+            
+            {
+                struct mdss_panel_data *pdata;
+		        pdata = dev_get_platdata(&mfd->pdev->dev);        
+                if ((pdata) && (pdata->set_backlight)) {
+        			mutex_lock(&mfd->bl_lock);
+                    pr_err("%s: set_backlight 0\n", __func__);
+        			pdata->set_backlight(pdata, 0);
+        			mutex_unlock(&mfd->bl_lock);
+    		    }
+            }
+            
+            
 			ret = mfd->mdp.off_fnc(mfd);
 			if (ret)
 				mfd->panel_power_on = curr_pwr_state;
@@ -1295,7 +1374,7 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	atomic_set(&mfd->ioctl_ref_cnt, 0);
 	
 	atomic_set(&mfd->kickoff_pending, 0);
-    
+
 	init_timer(&mfd->no_update.timer);
 	mfd->no_update.timer.function = mdss_fb_no_update_notify_timer_cb;
 	mfd->no_update.timer.data = (unsigned long)mfd;
@@ -1308,7 +1387,6 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 	init_waitqueue_head(&mfd->ioctl_q);
 	
 	init_waitqueue_head(&mfd->kickoff_wait_q);
-	
 
 	ret = fb_alloc_cmap(&fbi->cmap, 256, 0);
 	if (ret)
@@ -1327,6 +1405,8 @@ static int mdss_fb_register(struct msm_fb_data_type *mfd)
 
 	return 0;
 }
+
+
 static int mdss_fb_wait_for_kickoff(struct msm_fb_data_type *mfd)
 {
 	int ret = 0;
@@ -1346,7 +1426,8 @@ static int mdss_fb_wait_for_kickoff(struct msm_fb_data_type *mfd)
 
 	return 0;
 }
- 
+
+
 static int mdss_fb_open(struct fb_info *info, int user)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
@@ -1768,7 +1849,6 @@ static int mdss_fb_pan_display_ex(struct fb_info *info,
 	atomic_inc(&mfd->commits_pending);
 	
 	atomic_inc(&mfd->kickoff_pending);
-	
 	wake_up_all(&mfd->commit_wait_q);
 	mutex_unlock(&mfd->mdp_sync_pt_data.sync_mutex);
 	if (wait_for_finish)
@@ -1861,10 +1941,10 @@ static int __mdss_fb_perform_commit(struct msm_fb_data_type *mfd)
 		if (ret)
 			pr_err("pan display failed %x on fb%d\n", ret,
 					mfd->index);
-					
+		
 		atomic_set(&mfd->kickoff_pending, 0);
-		wake_up_all(&mfd->kickoff_wait_q);	
-       		
+     	wake_up_all(&mfd->kickoff_wait_q);
+		
 	}
 	if (!ret)
 		mdss_fb_update_backlight(mfd);
@@ -1904,32 +1984,10 @@ static int __mdss_fb_display_thread(void *data)
 	
 	atomic_set(&mfd->kickoff_pending, 0);
 	wake_up_all(&mfd->idle_wait_q);
-	
 
 	return ret;
 }
- 
-static int __ioctl_wait_idle(struct msm_fb_data_type *mfd, u32 cmd)
-{
-	int ret = 0;
 
-	if (mfd->wait_for_kickoff &&
-		((cmd == MSMFB_OVERLAY_PREPARE) ||
-		(cmd == MSMFB_BUFFER_SYNC) ||
-		(cmd == MSMFB_OVERLAY_SET))) {
-		ret = mdss_fb_wait_for_kickoff(mfd);
-	} else if ((cmd != MSMFB_VSYNC_CTRL) &&
-		(cmd != MSMFB_OVERLAY_VSYNC_CTRL) &&
-		(cmd != MSMFB_ASYNC_BLIT) &&
-		(cmd != MSMFB_BLIT) &&
-		(cmd != MSMFB_NOTIFY_UPDATE)) {
-		ret = mdss_fb_pan_idle(mfd);
-	}
-
-	if (ret)
-		pr_debug("Shutdown pending. Aborting operation %x\n", cmd);
-	return ret;
-}
 static int mdss_fb_check_var(struct fb_var_screeninfo *var,
 			     struct fb_info *info)
 {
@@ -2385,6 +2443,29 @@ static int mdss_fb_display_commit(struct fb_info *info,
 }
 
 
+static int __ioctl_wait_idle(struct msm_fb_data_type *mfd, u32 cmd)
+{
+	int ret = 0;
+
+	if (mfd->wait_for_kickoff &&
+		((cmd == MSMFB_OVERLAY_PREPARE) ||
+		(cmd == MSMFB_BUFFER_SYNC) ||
+		(cmd == MSMFB_OVERLAY_SET))) {
+		ret = mdss_fb_wait_for_kickoff(mfd);
+	} else if ((cmd != MSMFB_VSYNC_CTRL) &&
+		(cmd != MSMFB_OVERLAY_VSYNC_CTRL) &&
+		(cmd != MSMFB_ASYNC_BLIT) &&
+		(cmd != MSMFB_BLIT) &&
+		(cmd != MSMFB_NOTIFY_UPDATE)) {
+		ret = mdss_fb_pan_idle(mfd);
+	}
+
+	if (ret)
+		pr_debug("Shutdown pending. Aborting operation %x\n", cmd);
+	return ret;
+}
+
+
 static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			 unsigned long arg)
 {
@@ -2409,22 +2490,12 @@ static int mdss_fb_ioctl(struct fb_info *info, unsigned int cmd,
 
 	mdss_fb_power_setting_idle(mfd);
 	
-   /*
-	if ((cmd != MSMFB_VSYNC_CTRL) && (cmd != MSMFB_OVERLAY_VSYNC_CTRL) &&
-			(cmd != MSMFB_ASYNC_BLIT) && (cmd != MSMFB_BLIT) &&
-			(cmd != MSMFB_NOTIFY_UPDATE) &&
-			(cmd != MSMFB_OVERLAY_PREPARE)) {
-		ret = mdss_fb_pan_idle(mfd);
-		if (ret) {
-			pr_debug("Shutdown pending. Aborting operation %x\n",
-				cmd);
-			goto exit;
-		}
-	} */
+
 	ret = __ioctl_wait_idle(mfd, cmd);
 	if (ret)
 		goto exit;
-  		
+	//zte-modify by zuojianfang for wifi-display abnormal end
+		
 	switch (cmd) {
 	case MSMFB_CURSOR:
 		ret = mdss_fb_cursor(info, argp);

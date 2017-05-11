@@ -100,11 +100,13 @@ static int suspend_prepare(void)
 		return -EPERM;
 
 	pm_prepare_console();
+	
 
 	error = pm_notifier_call_chain(PM_SUSPEND_PREPARE);
 	if (error)
 		goto Finish;
 
+	
 	error = suspend_freeze_processes();
 	if (!error)
 		return 0;
@@ -112,7 +114,9 @@ static int suspend_prepare(void)
 	suspend_stats.failed_freeze++;
 	dpm_save_failed_step(SUSPEND_FREEZE);
  Finish:
+         
 	pm_notifier_call_chain(PM_POST_SUSPEND);
+         
 	pm_restore_console();
 	return error;
 }
@@ -257,7 +261,10 @@ int suspend_devices_and_enter(suspend_state_t state)
 static void suspend_finish(void)
 {
 	suspend_thaw_processes();
+	
 	pm_notifier_call_chain(PM_POST_SUSPEND);
+	
+
 	pm_restore_console();
 }
 
@@ -281,7 +288,7 @@ static int enter_state(suspend_state_t state)
 
 	printk(KERN_INFO "PM: Syncing filesystems ... ");
 	sys_sync();
-	printk("done.\n");
+	printk("PM: Syncing filesystems done.\n");
 
 	pr_debug("PM: Preparing system for %s sleep\n", pm_states[state]);
 	error = suspend_prepare();

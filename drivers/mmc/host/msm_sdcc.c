@@ -3351,7 +3351,8 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	 */
 
 	mutex_lock(&host->clk_mutex);
-	DBG(host, "ios->clock = %u\n", ios->clock);
+	
+	printk("ios->clock = %u\n", ios->clock);
 	spin_lock_irqsave(&host->lock, flags);
 	if (!host->sdcc_irq_disabled) {
 		disable_irq_nosync(host->core_irqres->start);
@@ -3363,19 +3364,21 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 	synchronize_irq(host->core_irqres->start);
 
 	pwr = msmsdcc_setup_pwr(host, ios);
-
+      printk("  msmsdcc_setup_pwr  \n");
 	spin_lock_irqsave(&host->lock, flags);
 	if (ios->clock) {
 		spin_unlock_irqrestore(&host->lock, flags);
 		rc = msmsdcc_setup_clocks(host, true);
+             printk("  msmsdcc_setup_clocks  \n");
 		if (rc)
 			goto out;
 		spin_lock_irqsave(&host->lock, flags);
 		writel_relaxed(host->mci_irqenable, host->base + MMCIMASK0);
 		mb();
 		msmsdcc_cfg_sdio_wakeup(host, false);
+             printk("  msmsdcc_cfg_sdio_wakeup  \n");
 		clock = msmsdcc_get_sup_clk_rate(host, ios->clock);
-
+             printk("  msmsdcc_get_sup_clk_rate  \n");
 		/*
 		 * For DDR50 mode, controller needs clock rate to be
 		 * double than what is required on the SD card CLK pin.
@@ -3396,7 +3399,7 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 
 			clock = msmsdcc_get_sup_clk_rate(host, ios->clock * 2);
 		}
-
+             printk(" msmsdcc_get_sup_clk_rate \n");
 		if (clock != host->clk_rate) {
 			spin_unlock_irqrestore(&host->lock, flags);
 			rc = clk_set_rate(host->clk, clock);
@@ -3418,12 +3421,14 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 								&mmc->ios);
 			spin_lock_irqsave(&host->lock, flags);
 		}
+             printk(" msmsdcc_msm_bus_cancel_work_and_set_vote \n");
 		/*
 		 * give atleast 2 MCLK cycles delay for clocks
 		 * and SDCC core to stabilize
 		 */
 		mb();
 		msmsdcc_delay(host);
+             printk("  msmsdcc_delay  \n");
 		clk |= MCI_CLK_ENABLE;
 	}
 	if (ios->bus_width == MMC_BUS_WIDTH_8)
@@ -3487,7 +3492,7 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 			msmsdcc_sync_reg_wr(host);
 		}
 	}
-
+      printk("  atomic_read  \n");
 	if (!(clk & MCI_CLK_ENABLE) && atomic_read(&host->clks_on)) {
 		msmsdcc_cfg_sdio_wakeup(host, true);
 		spin_unlock_irqrestore(&host->lock, flags);
@@ -3498,7 +3503,7 @@ msmsdcc_set_ios(struct mmc_host *mmc, struct mmc_ios *ios)
 		msmsdcc_setup_clocks(host, false);
 		spin_lock_irqsave(&host->lock, flags);
 	}
-
+      printk("  atomic_read  \n");
 	if (host->tuning_in_progress)
 		WARN(!atomic_read(&host->clks_on),
 			"tuning_in_progress but SDCC clocks are OFF\n");

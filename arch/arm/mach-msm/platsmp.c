@@ -360,6 +360,10 @@ static void __init msm_platform_smp_prepare_cpus(unsigned int max_cpus)
 
 	for_each_present_cpu(cpu) {
 		map = cpu_logical_map(cpu);
+       
+	if(map>=max_cpus)
+		continue;
+	
 		if (map > ARRAY_SIZE(cold_boot_flags)) {
 			set_cpu_present(cpu, false);
 			__WARN();

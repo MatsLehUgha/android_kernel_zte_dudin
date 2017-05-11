@@ -1,13 +1,13 @@
-/* linux/arch/arm/mach-msm/board-zte-wifi.c
-*/
+
+
 #include <linux/platform_device.h>
-#include <linux/if.h> /*For IFHWADDRLEN */
+#include <linux/if.h> 
 #include <linux/fs.h>
 #include <linux/random.h>
 #include <linux/jiffies.h>
 #include <linux/export.h>
 
-/* Function to get custom MAC address */
+
 struct mac_addr
 {
         char magic[6];
@@ -58,7 +58,7 @@ zte_wifi_get_mac_addr(unsigned char *addr)
 		 return -1;
 	 }
 	 
-	// printk("Mac addr = %.2x:%.2x:%.2x:%.2x:%.2x:%.2x",mWifiMac.addr[0],mWifiMac.addr[1],mWifiMac.addr[2],mWifiMac.addr[3],mWifiMac.addr[4],mWifiMac.addr[5]);
+	
 
 	rc = kernel_read(fp, fp->f_pos, buf, sizeof(mWifiMac));
 	printk("=====================================\n");

@@ -93,6 +93,9 @@ obj-$(CONFIG_MSM_PIL_MODEM) += pil-modem.o
 obj-$(CONFIG_MSM_PIL_DSPS) += pil-dsps.o
 obj-$(CONFIG_MSM_PIL_GSS) += pil-gss.o
 obj-$(CONFIG_MSM_PIL_PRONTO) += pil-pronto.o
+#zte-modified, by wangzhaoxin, 20131010, for WI-FI MAC address writen begin 
+obj-$(CONFIG_MSM_PIL_PRONTO) += board-zte-wifi.o
+#zte-modified, by wangzhaoxin, 20120917, for WI-FI MAC address writen end 
 obj-$(CONFIG_MSM_PIL_VENUS) += pil-venus.o
 obj-$(CONFIG_ARCH_QSD8X50) += sirc.o
 obj-$(CONFIG_ARCH_FSM9XXX) += sirc-fsm9xxx.o
@@ -196,9 +199,6 @@ ifdef CONFIG_MSM_SUBSYSTEM_RESTART
 	obj-y += ramdump.o
 endif
 obj-$(CONFIG_MSM_SYSMON_COMM) += sysmon.o
-#zte-modified, by haoxiaojie, 20131126, for WI-FI MAC address writen begin 
-obj-$(CONFIG_MSM_PIL_PRONTO) += board-zte-wifi.o
-#zte-modified, by haoxiaojie, 20131126, for WI-FI MAC address writen end  
 
 #obj-$(CONFIG_CPU_IDLE) += cpuidle.o
 
@@ -266,8 +266,8 @@ obj-$(CONFIG_MACH_MSM8930_MTP) += board-8930-all.o board-8930-regulator-pm8038.o
 obj-$(CONFIG_MACH_MSM8930_FLUID) += board-8930-all.o board-8930-regulator-pm8038.o board-8930-regulator-pm8917.o
 obj-$(CONFIG_PM8921_BMS) += bms-batterydata.o bms-batterydata-desay.o batterydata-lib.o
 obj-$(CONFIG_QPNP_BMS) += bms-batterydata.o bms-batterydata-desay.o batterydata-lib.o
-#ZTE SWIII BSP maxiaoping add zte battery data.
-obj-$(CONFIG_QPNP_BMS) += bms-batterydata-oem.o bms-batterydata-qrd-4v35-2000mah.o bms-batterydata-qrd-4v2-1300mah.o bms-batterydata-zte-4v35-2300mah.o
+#ZTE SWIII BSP maxiaoping 20140421 add zte battery data for P826N34.
+obj-$(CONFIG_QPNP_BMS) += bms-batterydata-oem.o bms-batterydata-qrd-4v35-2000mah.o bms-batterydata-qrd-4v2-1300mah.o bms-batterydata-P826N30-4v35-2300mah.o bms-batterydata-P826N34-4v35-2300mah.o
 obj-$(CONFIG_MACH_APQ8064_CDP) += board-8064-all.o board-8064-regulator.o
 obj-$(CONFIG_MACH_APQ8064_MTP) += board-8064-all.o board-8064-regulator.o
 obj-$(CONFIG_MACH_APQ8064_LIQUID) += board-8064-all.o board-8064-regulator.o

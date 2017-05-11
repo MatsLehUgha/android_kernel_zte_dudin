@@ -451,6 +451,17 @@ static struct socinfo_v1 dummy_socinfo = {
 	.version = 1,
 };
 
+
+int panel_id_from_lk;
+static int __init panel_num_setup(char *str)
+{
+	int cal = simple_strtol(str, NULL, 0);
+	panel_id_from_lk = cal;
+	return 1;
+}
+__setup("panel=", panel_num_setup);
+
+
 uint32_t socinfo_get_id(void)
 {
 	return (socinfo) ? socinfo->v1.id : 0;

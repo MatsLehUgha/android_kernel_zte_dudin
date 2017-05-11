@@ -481,6 +481,7 @@ struct qpnp_led_data {
 	int			max_current;
 	bool			default_on;
 	int			turn_off_delay_ms;
+	struct work_struct	signal_work;
 };
 
 static int num_kpbl_leds_on;
@@ -1400,7 +1401,15 @@ static void qpnp_led_set(struct led_classdev *led_cdev,
 		value = led->cdev.max_brightness;
 
 	led->cdev.brightness = value;
-	schedule_work(&led->work);
+	
+	if((strcmp(led->cdev.name, "green"))&&(strcmp(led->cdev.name, "red"))){
+		schedule_work(&led->work);
+	}
+	else
+	{
+		
+		schedule_work(&led->signal_work);
+	}
 }
 
 static void __qpnp_led_work(struct qpnp_led_data *led,
@@ -1462,6 +1471,16 @@ static void qpnp_led_work(struct work_struct *work)
 	return;
 }
 
+
+static void qpnp_led_signal_work(struct work_struct *work)
+{
+	struct qpnp_led_data *led = container_of(work,
+					struct qpnp_led_data, signal_work);
+	
+	__qpnp_led_work(led, led->cdev.brightness);
+	
+	return;
+}	
 static int __devinit qpnp_led_set_max_brightness(struct qpnp_led_data *led)
 {
 	switch (led->id) {
@@ -2169,12 +2188,10 @@ restore:
 static void led_blink(struct qpnp_led_data *led,
 			struct pwm_config_data *pwm_cfg)
 {
-    printk("led_blink:pwm_cfg->use_blink= %d\n",pwm_cfg->use_blink);
-	
-    printk("led_blink:led->cdev.brightness= %d\n",led->cdev.brightness);
+	cancel_work_sync(&led->signal_work);
+
 	if (pwm_cfg->use_blink) {
-		cancel_work_sync(&led->work); 
-		mutex_lock(&led->lock); //add by wangyongwu for led green light blink 2014.1.10 
+		mutex_lock(&led->lock); 
 		if (led->cdev.brightness) {
 			pwm_cfg->blinking = true;
 			if (led->id == QPNP_ID_LED_MPP)
@@ -2186,13 +2203,13 @@ static void led_blink(struct qpnp_led_data *led,
 			if (led->id == QPNP_ID_LED_MPP)
 				led->mpp_cfg->pwm_mode = pwm_cfg->default_mode;
 		}
-        mutex_unlock(&led->lock);//add by wangyongwu for led green light blink 2014.1.10 
+        mutex_unlock(&led->lock);
 		pwm_free(pwm_cfg->pwm_dev);
 		qpnp_pwm_init(pwm_cfg, led->spmi_dev, led->cdev.name);
 		qpnp_led_set(&led->cdev, led->cdev.brightness);
 	}
 }
-//add  for blink cat 2013.12.18 start
+
 static ssize_t led_blink_show(struct device *dev,
 				    struct device_attribute *attr, char *buf)
 {
@@ -2202,7 +2219,7 @@ static ssize_t led_blink_show(struct device *dev,
 	ssize_t ret = 0;
 
 	led = container_of(led_cdev, struct qpnp_led_data, cdev);
-
+	
 	switch (led->id) {
 	case QPNP_ID_LED_MPP:
 		blinking = led->cdev.blink_flag; 
@@ -2211,13 +2228,13 @@ static ssize_t led_blink_show(struct device *dev,
 		dev_err(&led->spmi_dev->dev, "Invalid LED id type for blink\n");
 		return -EINVAL;
 	}
-	/* no lock needed for this */
+	
 	sprintf(buf, "%ld\n", blinking);
 	ret = strlen(buf) + 1;
 
 	return ret;
 }
-//add  for blink cat 2013.12.18 end
+
 static ssize_t blink_store(struct device *dev,
 	struct device_attribute *attr,
 	const char *buf, size_t count)
@@ -2232,11 +2249,11 @@ static ssize_t blink_store(struct device *dev,
 		return ret;
 	led = container_of(led_cdev, struct qpnp_led_data, cdev);
 	led->cdev.brightness = blinking ? led->cdev.max_brightness : 0;
-    printk("blink_store:led->id=%d,blink=%lu\n",led->id,blinking);
+
 	switch (led->id) {
 	case QPNP_ID_LED_MPP:
 		led_blink(led, led->mpp_cfg->pwm_cfg);
-		led->cdev.blink_flag = blinking; //add  for blink cat 2013.12.18 
+		led->cdev.blink_flag = blinking; 
 		break;
 	case QPNP_ID_RGB_RED:
 	case QPNP_ID_RGB_GREEN:
@@ -2259,9 +2276,9 @@ static DEVICE_ATTR(start_idx, 0664, NULL, start_idx_store);
 static DEVICE_ATTR(ramp_step_ms, 0664, NULL, ramp_step_ms_store);
 static DEVICE_ATTR(lut_flags, 0664, NULL, lut_flags_store);
 static DEVICE_ATTR(duty_pcts, 0664, NULL, duty_pcts_store);
-//modify  for blink cat 2013.12.18 start
+
 static DEVICE_ATTR(blink, 0664, led_blink_show, blink_store);
-//modify  for blink cat 2013.12.18 end
+
 static struct attribute *led_attrs[] = {
 	&dev_attr_led_mode.attr,
 	&dev_attr_strobe.attr,
@@ -3348,7 +3365,9 @@ static int __devinit qpnp_leds_probe(struct spmi_device *spmi)
 		}
 
 		mutex_init(&led->lock);
+		
 		INIT_WORK(&led->work, qpnp_led_work);
+		INIT_WORK(&led->signal_work, qpnp_led_signal_work);
 
 		rc =  qpnp_led_initialize(led);
 		if (rc < 0)

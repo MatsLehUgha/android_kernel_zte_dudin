@@ -35,6 +35,11 @@
 #define QPNP_VIB_VTG_SET_MASK		0x1F
 #define QPNP_VIB_LOGIC_SHIFT		4
 
+
+#define QPNP_VIB_MIN_TIME		50
+
+
+
 struct qpnp_vib {
 	struct spmi_device *spmi;
 	struct hrtimer vib_timer;
@@ -169,6 +174,11 @@ static void qpnp_vib_enable(struct timed_output_dev *dev, int value)
 	else {
 		value = (value > vib->timeout ?
 				 vib->timeout : value);
+		
+		value = (value < QPNP_VIB_MIN_TIME ?
+				 QPNP_VIB_MIN_TIME : value);
+		
+
 		vib->state = 1;
 		hrtimer_start(&vib->vib_timer,
 			      ktime_set(value / 1000, (value % 1000) * 1000000),

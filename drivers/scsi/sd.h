@@ -77,6 +77,10 @@ struct scsi_disk {
 	unsigned	lbpws : 1;
 	unsigned	lbpws10 : 1;
 	unsigned	lbpvpd : 1;
+	
+    int sdState;
+    struct delayed_work	scan_dwork;	 
+	
 };
 #define to_scsi_disk(obj) container_of(obj,struct scsi_disk,dev)
 

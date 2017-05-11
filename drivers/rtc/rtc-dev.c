@@ -20,6 +20,11 @@ static dev_t rtc_devt;
 
 #define RTC_DEV_MAX 16 /* 16 RTCs should be enough for everyone... */
 
+ 
+extern int boot_is_poweroff_charger(void);
+extern int rtc_read_alarm_zte(struct rtc_device *rtc, struct rtc_wkalrm *alarm);
+ 
+
 static int rtc_dev_open(struct inode *inode, struct file *file)
 {
 	int err;
@@ -267,8 +272,14 @@ static long rtc_dev_ioctl(struct file *file,
 	switch (cmd) {
 	case RTC_ALM_READ:
 		mutex_unlock(&rtc->ops_lock);
-
+        
+		if(boot_is_poweroff_charger()){
+		err = rtc_read_alarm_zte(rtc, &alarm);
+		}
+		else{
 		err = rtc_read_alarm(rtc, &alarm);
+		}
+		 
 		if (err < 0)
 			return err;
 

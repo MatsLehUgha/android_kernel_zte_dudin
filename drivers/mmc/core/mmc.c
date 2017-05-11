@@ -66,29 +66,17 @@ static const struct mmc_fixup mmc_fixups[] = {
 	MMC_FIXUP_EXT_CSD_REV(CID_NAME_ANY, CID_MANFID_HYNIX,
 			      0x014a, add_quirk, MMC_QUIRK_BROKEN_HPI, 5),
 
-	/*
-	 * Some Hynix cards exhibit data corruption over reboots if cache is
-	 * enabled. Disable cache for all versions until a class of cards that
-	 * show this behavior is identified.
-	 */
-	MMC_FIXUP("H8G2d", CID_MANFID_HYNIX, CID_OEMID_ANY, add_quirk_mmc,
-		  MMC_QUIRK_CACHE_DISABLE),
-
 	END_FIXUP
 };
 
-#define SAMSUNG_EMMC_MANUFACTURER_ID   0x15
-#define HYNIX_EMMC_MANUFACTURER_ID         0x90
-#define SANDISK_EMMC_MANUFACTURER_ID     0x45
 
 #include <linux/proc_fs.h>
 static struct proc_dir_entry *d_entry;
 static char emmc_module_name[64]={"0"};
-void init_emmc_info_proc(struct mmc_host *host);
-void deinit_emmc_info_proc(void);
-static int msm_emmc_info_read_samsung_proc(char *page, char **start, off_t off, int count, int *eof, void *data);
-static int msm_emmc_info_read_hynix_proc(char *page, char **start, off_t off, int count, int *eof, void *data);
-static int msm_emmc_info_read_sandisk_proc(char *page, char **start, off_t off, int count, int *eof, void *data);
+static void init_emmc_info_proc(struct mmc_host *host);
+static void emmc_info_read_size(struct mmc_card *card);
+static int msm_emmc_info_proc_cb(char *page, char **start, off_t off, int count, int *eof, void *data);
+
 
 /*
  * Given the decoded CSD structure, decode the raw CID to our CID structure.
@@ -141,6 +129,37 @@ static int mmc_decode_cid(struct mmc_card *card)
 		return -EINVAL;
 	}
 
+    
+    if (card->cid.manfid>0)
+    {
+        printk("wqm::enter mmc_decode_cid \n");
+        printk("wqm::manfid=%d \n", card->cid.manfid);
+        printk("wqm::name=%s \n", card->cid.prod_name);
+        memset(emmc_module_name,0,sizeof(emmc_module_name));
+        sprintf(emmc_module_name, "\n  ManuID: 0x%x", card->cid.manfid);
+        switch (card->cid.manfid)
+        {
+        case 0x11:
+            strcat(emmc_module_name, "(Toshiba)");
+            break;
+        case 0x15:
+            strcat(emmc_module_name, "(Samsung)");
+            break;
+        case 0x90:
+            strcat(emmc_module_name, "(Hynix)");
+            break;
+        case 0x45:
+            strcat(emmc_module_name, "(Sandisk)");
+            break;
+        case 0xFE:
+            strcat(emmc_module_name, "(Micron)");
+            break;
+        default:
+            break;
+        }
+        sprintf(&emmc_module_name[strlen(emmc_module_name)], ", Name: %s", card->cid.prod_name);
+    }
+    
 	return 0;
 }
 
@@ -602,7 +621,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		card->ext_csd.max_packed_reads =
 			ext_csd[EXT_CSD_MAX_PACKED_READS];
 	}
-
+    emmc_info_read_size(card);
 out:
 	return err;
 }
@@ -815,74 +834,66 @@ static int mmc_select_powerclass(struct mmc_card *card,
 	return err;
 }
 
-static int msm_emmc_info_read_samsung_proc(
-    char *page, char **start, off_t off, int count, int *eof, void *data)
+
+static int msm_emmc_info_proc_cb(char *page, char **start, off_t off, int count, int *eof, void *data)
 {
     int len = 0;
-    printk("WJP:enter msm_emmc_info_read_samsung_proc \n");
-    strcpy(emmc_module_name,"SAMSUNG KLM4G1FE3B 8G eMMC");
+    printk("wqm:enter msm_emmc_info_proc_cb \n");
     len = sprintf(page, "%s\n", emmc_module_name);
     return len;
 }
 
-static int msm_emmc_info_read_sandisk_proc(
-    char *page, char **start, off_t off, int count, int *eof, void *data)
+static void init_emmc_info_proc(struct mmc_host *host)
 {
-    int len = 0;
-    printk("WJP:enter msm_emmc_info_read_sandisk_proc \n");
-    strcpy(emmc_module_name,"SANDISK SDIN7DP2 8G eMMC");
-    len = sprintf(page, "%s\n", emmc_module_name);
-    return len;
-}
-
-static int msm_emmc_info_read_hynix_proc(
-    char *page, char **start, off_t off, int count, int *eof, void *data)
-{
-    int len = 0;
-    printk("WJP:enter msm_emmc_info_read_hynix_proc \n");
-    strcpy(emmc_module_name,"HYNIX H9TP32A4GDBCPR 8G eMMC");
-    len = sprintf(page, "%s\n", emmc_module_name);
-    return len;
-}
-
-void init_emmc_info_proc(struct mmc_host *host)
-{
-    printk("WJP:enter init_emmc_info_proc \n");
-    printk("WQM::manfid=%d \n", host->card->cid.manfid);
     d_entry = create_proc_entry("driver/emmc", 0, NULL);
-
     if (d_entry)
     {
-        if (host->card->cid.manfid == SAMSUNG_EMMC_MANUFACTURER_ID)
-        {
-            d_entry->read_proc = msm_emmc_info_read_samsung_proc;
-        }
-        else if (host->card->cid.manfid == HYNIX_EMMC_MANUFACTURER_ID)
-        {
-            d_entry->read_proc = msm_emmc_info_read_hynix_proc;
-        }
-        else if (host->card->cid.manfid == SANDISK_EMMC_MANUFACTURER_ID)
-        {
-            d_entry->read_proc = msm_emmc_info_read_sandisk_proc;
-        }
-        else  
-        {
-            d_entry->read_proc = msm_emmc_info_read_sandisk_proc;
-        }
+        d_entry->read_proc = msm_emmc_info_proc_cb;
         d_entry->data = NULL;
     }
 
     return;
 }
 
-void deinit_emmc_info_proc(void)
+static void emmc_info_read_size(struct mmc_card *card)
 {
-    if (NULL != d_entry) {
-        remove_proc_entry("driver/emmc", NULL);
-        d_entry = NULL;
+    u32 size_GB=0;
+
+    size_GB=card->ext_csd.sectors/1024/1024*card->ext_csd.data_sector_size/1024;
+    if (size_GB<1)
+    {
+        sprintf(&emmc_module_name[strlen(emmc_module_name)], ", Size: %dGB", 1);
     }
-    return;
+    else if (size_GB<2)
+    {
+        sprintf(&emmc_module_name[strlen(emmc_module_name)], ", Size: %dGB", 2);
+    }
+    else if (size_GB<4)
+    {
+        sprintf(&emmc_module_name[strlen(emmc_module_name)], ", Size: %dGB", 4);
+    }
+    else if (size_GB<8)
+    {
+        sprintf(&emmc_module_name[strlen(emmc_module_name)], ", Size: %dGB", 8);
+    }
+    else if (size_GB<16)
+    {
+        sprintf(&emmc_module_name[strlen(emmc_module_name)], ", Size: %dGB", 16);
+    }
+    else if (size_GB<32)
+    {
+        sprintf(&emmc_module_name[strlen(emmc_module_name)], ", Size: %dGB", 32);
+    }
+    else if (size_GB<64)
+    {
+        sprintf(&emmc_module_name[strlen(emmc_module_name)], ", Size: %dGB", 64);
+    }
+    else
+    {
+        sprintf(&emmc_module_name[strlen(emmc_module_name)], ", Size: %dGB", size_GB+1);
+    }
 }
+
 
 /*
  * Select the correct bus width supported by both host and card
@@ -1647,8 +1658,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 * If HPI is not supported then cache shouldn't be enabled.
 	 */
 	if ((host->caps2 & MMC_CAP2_CACHE_CTRL) &&
-	    (card->ext_csd.cache_size > 0) && card->ext_csd.hpi_en &&
-	    ((card->quirks & MMC_QUIRK_CACHE_DISABLE) == 0)) {
+	    (card->ext_csd.cache_size > 0) && card->ext_csd.hpi_en) {
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				EXT_CSD_CACHE_CTRL, 1,
 				card->ext_csd.generic_cmd6_time);
@@ -2049,10 +2059,12 @@ int mmc_attach_mmc(struct mmc_host *host)
 	if (err)
 		goto err;
 
+       
        if (false == emmc_proc_init){
         	init_emmc_info_proc(host);
         	emmc_proc_init = true;
        }
+       
     
 	mmc_release_host(host);
 	err = mmc_add_card(host->card);

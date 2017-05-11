@@ -120,6 +120,7 @@
 
 		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
 		/*qcom,cdc-vdd-spkr-gpios = <&pm8226_gpios 2 0>;*//*jiaobaocun modified*/
+		qcom,cdc-lineout-spkr-gpios = <&msmgpio 34 0>;/*jiaobaocun added*/
 	};
 
 	sound-9302 {
@@ -137,6 +138,7 @@
 
 		qcom,cdc-mclk-gpios = <&pm8226_gpios 1 0>;
 		/*qcom,cdc-vdd-spkr-gpios = <&pm8226_gpios 2 0>;*//*jiaobaocun modified*/
+		qcom,cdc-lineout-spkr-gpios = <&msmgpio 34 0>;/*jiaobaocun added*/
 	};
 };
 

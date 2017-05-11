@@ -629,7 +629,6 @@ int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
 	int ret = 0;
 	unsigned long flag;
-	int tmp; // lijiangshuo add qcom patch for LCD ESD test 20140530
 
 	if (ctrl_pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
@@ -649,11 +648,6 @@ int mdss_dsi_bta_status_check(struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 	INIT_COMPLETION(ctrl_pdata->bta_comp);
 	mdss_dsi_enable_irq(ctrl_pdata, DSI_BTA_TERM);
 	spin_unlock_irqrestore(&ctrl_pdata->mdp_lock, flag);
-/* lijiangshuo add qcom patch for LCD ESD test 20140530 start */
-	tmp = MIPI_INP(ctrl_pdata->ctrl_base + 0x110);
-	tmp |= DSI_INTR_BTA_DONE_MASK | DSI_INTR_CMD_DMA_DONE_MASK;
-	MIPI_OUTP(ctrl_pdata->ctrl_base + 0x110, tmp);
-/* lijiangshuo add qcom patch for LCD ESD test 20140530 end */
 	MIPI_OUTP(ctrl_pdata->ctrl_base + 0x098, 0x01); /* trigger  */
 	wmb();
 
@@ -737,8 +731,12 @@ static int mdss_dsi_cmds2buf_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 			len = mdss_dsi_cmd_dma_tx(ctrl, tp);
 			if (IS_ERR_VALUE(len)) {
 				mdss_dsi_disable_irq(ctrl, DSI_CMD_TERM);
-				pr_err("%s: failed to call cmd_dma_tx for cmd = 0x%x\n",
-					__func__,  cmds->payload[0]);
+                
+				
+				
+                pr_err("%s: failed to call cmd_dma_tx for cmd = 0x%x len=%d\n",
+					__func__,  cmds->payload[0], len);
+                
 				return -EINVAL;
 			}
 
@@ -887,8 +885,7 @@ int mdss_dsi_cmds_rx(struct mdss_dsi_ctrl_pdata *ctrl,
 		MIPI_OUTP((ctrl->ctrl_base) + 0x0004, data);
 	}
 
-//	if (rlen == 0) {
-	if(rlen <= 2) { //lijiangshuo add qcom patch for LCD ESD 20140530
+	if (rlen == 0) {
 		short_response = 1;
 		rx_byte = 4;
 	} else {
@@ -1029,6 +1026,9 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 					struct dsi_buf *tp)
 {
 	int len, ret = 0;
+    
+    int iommu_attached = 0;
+    
 	int domain = MDSS_IOMMU_DOMAIN_UNSECURE;
 	char *bp;
 	unsigned long size, addr;
@@ -1047,6 +1047,9 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 			pr_err("unable to map dma memory to iommu(%d)\n", ret);
 			return -ENOMEM;
 		}
+        
+        iommu_attached = 1; 
+        
 	} else {
 		addr = tp->dmap;
 	}
@@ -1080,7 +1083,10 @@ static int mdss_dsi_cmd_dma_tx(struct mdss_dsi_ctrl_pdata *ctrl,
 	else
 		ret = tp->len;
 
-	if (is_mdss_iommu_attached())
+    
+	
+	if (iommu_attached)
+    
 		msm_iommu_unmap_contig_buffer(addr,
 			mdss_get_iommu_domain(domain), 0, size);
 

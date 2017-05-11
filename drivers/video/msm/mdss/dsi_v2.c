@@ -119,6 +119,8 @@ static int dsi_event_handler(struct mdss_panel_data *pdata,
 		return -ENODEV;
 	}
 
+    printk("%s: event=%d\n", __func__, event);
+    pr_err("%s: event=%d\n", __func__, event);
 	switch (event) {
 	case MDSS_EVENT_UNBLANK:
 		rc = dsi_on(pdata);

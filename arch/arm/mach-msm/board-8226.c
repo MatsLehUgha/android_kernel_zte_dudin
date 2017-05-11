@@ -59,40 +59,6 @@
 #include "modem_notifier.h"
 #include "spm-regulator.h"
 
-#ifdef CONFIG_ANDROID_RAM_CONSOLE
-#include "../../../drivers/staging/android/ram_console.h"
-#include <linux/persistent_ram.h>
-
-static struct ram_console_platform_data ramconsole_pdata;
-
-static struct platform_device ramconsole_device = {
-	.name	= "ram_console",
-	.id	= -1,
-	.dev	= {
-		.platform_data = &ramconsole_pdata,
-	},
-};
-
-static struct platform_device *zte_devices[] __initdata = {
-	&ramconsole_device,
-};
-
-
-static struct persistent_ram_descriptor zte_prd[] __initdata = {
-	{
-		.name = "ram_console",
-		.size = SZ_2M,
-	},
-};
-
-static struct persistent_ram zte_pr __initdata = {
-	.descs		= zte_prd,
-	.num_descs	= ARRAY_SIZE(zte_prd),
-	.start		= PLAT_PHYS_OFFSET + SZ_512M,
-	.size		= SZ_2M,
-};
-#endif
-
 static struct memtype_reserve msm8226_reserve_table[] __initdata = {
 	[MEMTYPE_SMI] = {
 	},
@@ -139,6 +105,28 @@ static struct reserve_info msm8226_reserve_info __initdata = {
 	.paddr_to_memtype = msm8226_paddr_to_memtype,
 };
 
+
+#include <linux/persistent_ram.h>
+static struct persistent_ram_descriptor msm8226_persistent_ram_descs[] __initdata = {
+        {
+            .name = "ram_console",
+            .size = 0x100000,
+        },
+        {}
+};
+static struct persistent_ram msm8226_persistent_ram __initdata = {
+    .start = 0x6000000,
+    .size = 0x100000,
+    .num_descs = 1,
+    .descs = msm8226_persistent_ram_descs,
+};
+
+static struct platform_device ram_console_device = {
+	.name = "ram_console",
+	.id = -1,
+};
+
+
 static void __init msm8226_early_memory(void)
 {
 	reserve_info = &msm8226_reserve_info;
@@ -149,11 +137,8 @@ static void __init msm8226_reserve(void)
 {
 	reserve_info = &msm8226_reserve_info;
 	of_scan_flat_dt(dt_scan_for_memory_reserve, msm8226_reserve_table);
+	persistent_ram_early_init(&msm8226_persistent_ram);
 	msm_reserve();
-	
-	#ifdef CONFIG_ANDROID_RAM_CONSOLE
-	persistent_ram_early_init(&zte_pr);
-	#endif
 }
 
 /*
@@ -184,9 +169,7 @@ void __init msm8226_add_drivers(void)
 	cpr_regulator_init();
 	tsens_tm_init_driver();
 	msm_thermal_device_init();
-	#ifdef CONFIG_ANDROID_RAM_CONSOLE
-	platform_add_devices(zte_devices, ARRAY_SIZE(zte_devices));
-	#endif
+	platform_device_register(&ram_console_device);
 }
 
 void __init msm8226_init(void)

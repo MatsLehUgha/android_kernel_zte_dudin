@@ -73,9 +73,11 @@ static struct port_info {
 	enum transport_type	transport;
 	unsigned		port_num;
 	unsigned		client_port_num;
+
 #if defined(CONFIG_USB_AT)
 	int                     enable;
 #endif
+
 } gserial_ports[GSERIAL_NO_PORTS];
 
 static inline bool is_transport_sdio(enum transport_type t)
@@ -586,9 +588,12 @@ static int gser_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 	gport_connect(gser);
 
 	gser->online = 1;
+
 #if defined(CONFIG_USB_AT)
+
 	gserial_ports[gser->port_num].enable = gser->online;
 #endif
+
 	return rc;
 }
 
@@ -607,9 +612,11 @@ static void gser_disable(struct usb_function *f)
 	gser->notify->driver_data = NULL;
 #endif
 	gser->online = 0;
+
 #if defined(CONFIG_USB_AT)
 	gserial_ports[gser->port_num].enable = gser->online;
 #endif
+
 
 }
 #ifdef CONFIG_MODEM_SUPPORT
@@ -974,11 +981,13 @@ int gser_bind_config(struct usb_configuration *c, u8 port_num)
 	else if (port_num == 1)
 		gser->port.func.name = "nmea";
 	else
+
 #if defined(CONFIG_USB_AT)
-		gser->port.func.name = "at";//zhangjing add for at :modem2---at
+		gser->port.func.name = "at";
 #else
 		gser->port.func.name = "modem2";
 #endif
+
 	gser->port.func.setup = gser_setup;
 	gser->port.connect = gser_connect;
 	gser->port.get_dtr = gser_get_dtr;

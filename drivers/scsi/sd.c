@@ -113,6 +113,8 @@ static void scsi_disk_release(struct device *cdev);
 static void sd_print_sense_hdr(struct scsi_disk *, struct scsi_sense_hdr *);
 static void sd_print_result(struct scsi_disk *, int);
 
+static void sd_probe_async(void *data, async_cookie_t cookie);
+
 static DEFINE_SPINLOCK(sd_index_lock);
 static DEFINE_IDA(sd_index_ida);
 
@@ -1887,8 +1889,6 @@ static int sd_try_rc16_first(struct scsi_device *sdp)
 {
 	if (sdp->host->max_cmd_len < 16)
 		return 0;
-	if (sdp->try_rc_10_first)
-		return 0;
 	if (sdp->scsi_level > SCSI_SPC_2)
 		return 1;
 	if (scsi_device_protection(sdp))
@@ -2480,7 +2480,7 @@ static int sd_revalidate_disk(struct gendisk *disk)
 		sd_read_app_tag_own(sdkp, buffer);
 	}
 
-	sdkp->first_scan = 0;
+	 sdkp->first_scan = 0;
 
 	/*
 	 * We now have all cache related info, determine how we deal
@@ -2498,6 +2498,8 @@ static int sd_revalidate_disk(struct gendisk *disk)
 	kfree(buffer);
 
  out:
+
+      
 	return 0;
 }
 
@@ -2567,6 +2569,74 @@ static int sd_format_disk_name(char *prefix, int index, char *buf, int buflen)
 	return 0;
 }
 
+static void sd_stor_scan_dwork(struct work_struct *work)
+{
+	struct scsi_disk *sdkp = container_of(work, struct scsi_disk,
+			scan_dwork.work);
+      struct scsi_device *sdp;
+	struct gendisk *gd;
+	u32 index;
+	struct device *dev;
+
+	sdp = sdkp->device;
+	gd = sdkp->disk;
+	index = sdkp->index;
+	dev = &sdp->sdev_gendev;
+      printk("sd_stor_scan_dwork  5  \n");
+
+      del_gendisk(gd);
+	gd->major = sd_major((index & 0xf0) >> 4);
+	gd->first_minor = ((index & 0xf) << 4) | (index & 0xfff00);
+	gd->minors = SD_MINORS;
+
+	gd->fops = &sd_fops;
+	gd->private_data = &sdkp->driver;
+	gd->queue = sdkp->device->request_queue;
+
+	
+	sdp->sector_size = 512;
+	sdkp->capacity = 0;
+	sdkp->media_present = 1;
+	sdkp->write_prot = 0;
+	sdkp->WCE = 0;
+	sdkp->RCD = 0;
+	sdkp->ATO = 0;
+	sdkp->first_scan = 1;
+	sdkp->max_medium_access_timeouts = SD_MAX_MEDIUM_TIMEOUTS;
+     printk("sd_revalidate_disk  1  \n");
+	sd_revalidate_disk(gd);
+     printk("sd_revalidate_disk  2  \n");
+
+	gd->driverfs_dev = &sdp->sdev_gendev;
+	gd->flags = GENHD_FL_EXT_DEVT;
+	if (sdp->removable) {
+		gd->flags |= GENHD_FL_REMOVABLE;
+		gd->events |= DISK_EVENT_MEDIA_CHANGE;
+	}
+	add_disk(gd);
+       printk("sd_revalidate_disk  3  \n");
+
+	sd_revalidate_disk(gd);
+       printk("sd_revalidate_disk  4  \n");
+
+	sd_printk(KERN_NOTICE, sdkp, "Attached SCSI %sdisk\n",
+		  sdp->removable ? "removable " : "");
+
+
+        if(!sdkp->media_present && sdkp->sdState == 1 )
+        {
+            
+
+                 printk("sd_revalidate_disk 6  \n");
+
+	       queue_delayed_work(system_freezable_wq, &sdkp->scan_dwork,
+			 1000);
+            
+            
+        }
+
+}
+
 /*
  * The asynchronous part of sd_probe
  */
@@ -2627,6 +2697,12 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
 		  sdp->removable ? "removable " : "");
 	scsi_autopm_put_device(sdp);
 	put_device(&sdkp->dev);
+    
+    if(!sdkp->media_present && sdkp->sdState == 1)
+    {
+        queue_delayed_work(system_freezable_wq, &sdkp->scan_dwork,1000);
+    }
+	
 }
 
 /**
@@ -2654,7 +2730,7 @@ static int sd_probe(struct device *dev)
 	struct gendisk *gd;
 	int index;
 	int error;
-
+      
 	error = -ENODEV;
 	if (sdp->type != TYPE_DISK && sdp->type != TYPE_MOD && sdp->type != TYPE_RBC)
 		goto out;
@@ -2715,10 +2791,14 @@ static int sd_probe(struct device *dev)
 
 	get_device(dev);
 	dev_set_drvdata(dev, sdkp);
+    
+     INIT_DELAYED_WORK(&sdkp->scan_dwork, sd_stor_scan_dwork);
+
 
 	get_device(&sdkp->dev);	/* prevent release before async_schedule */
 	async_schedule(sd_probe_async, sdkp);
-
+    sdkp->sdState = 1;
+	
 	return 0;
 
  out_free_index:
@@ -2749,13 +2829,20 @@ static int sd_remove(struct device *dev)
 	struct scsi_disk *sdkp;
 
 	sdkp = dev_get_drvdata(dev);
+	
+    cancel_delayed_work_sync(&sdkp->scan_dwork);
+    sdkp->sdState = 0;
+	
 	scsi_autopm_get_device(sdkp->device);
 
 	async_synchronize_full();
 	blk_queue_prep_rq(sdkp->device->request_queue, scsi_prep_fn);
 	blk_queue_unprep_rq(sdkp->device->request_queue, NULL);
+
 	device_del(&sdkp->dev);
+
 	del_gendisk(sdkp->disk);
+
 	sd_shutdown(dev);
 
 	mutex_lock(&sd_ref_mutex);

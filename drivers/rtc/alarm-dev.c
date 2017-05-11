@@ -40,9 +40,12 @@ module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 		} \
 	} while (0)
 
+
 #define ANDROID_ALARM_WAKEUP_MASK ( \
 	ANDROID_ALARM_RTC_WAKEUP_MASK | \
-	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK)
+	ANDROID_ALARM_ELAPSED_REALTIME_WAKEUP_MASK | \
+	ANDROID_ALARM_POWEROFF_WAKEUP_MASK)	
+
 
 /* support old usespace code */
 #define ANDROID_ALARM_SET_OLD               _IOW('a', 2, time_t) /* set alarm */
@@ -101,10 +104,13 @@ static long alarm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		}
 		alarm_enabled &= ~alarm_type_mask;
 		spin_unlock_irqrestore(&alarm_slock, flags);
+		
 		if (alarm_type == ANDROID_ALARM_RTC_POWEROFF_WAKEUP)
-			if (!copy_from_user(&new_alarm_time,
-				(void __user *)arg, sizeof(new_alarm_time)))
-				set_power_on_alarm(new_alarm_time.tv_sec, 0);
+		{
+			set_power_on_alarm(0,0);
+			printk("PM_DEBUG_MXP: RTC alarm has been cleared.\n");
+		}
+		
 		mutex_unlock(&alarm_mutex);
 		break;
 
@@ -127,17 +133,24 @@ static long alarm_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 from_old_alarm_set:
 		mutex_lock(&alarm_mutex);
 		spin_lock_irqsave(&alarm_slock, flags);
-		pr_alarm(IO, "alarm %d set %ld.%09ld\n", alarm_type,
-			new_alarm_time.tv_sec, new_alarm_time.tv_nsec);
+
+		/*printk("PM_DEBUG_MXP: alarm %d set %ld.%09ld\n", alarm_type,
+*/	
 		alarm_enabled |= alarm_type_mask;
 		alarm_start_range(&alarms[alarm_type],
 			timespec_to_ktime(new_alarm_time),
 			timespec_to_ktime(new_alarm_time));
 		spin_unlock_irqrestore(&alarm_slock, flags);
+		//[ECID:0000]ZTE_BSP maxiaoping 20140415 modify MSM8X10 alarm driver for power of charge,start.
 		if ((alarm_type == ANDROID_ALARM_RTC_POWEROFF_WAKEUP) &&
 				(ANDROID_ALARM_BASE_CMD(cmd) ==
 				 ANDROID_ALARM_SET(0)))
+		{
 			set_power_on_alarm(new_alarm_time.tv_sec, 1);
+			/*printk("PM_DEBUG_MXP: RTC alarm type %d is set to %ld.%09ld\n", alarm_type,
+*/	
+		}
+		//[ECID:0000]ZTE_BSP maxiaoping 20140415 modify MSM8X10 alarm driver for power of charge,end.
 		mutex_unlock(&alarm_mutex);
 		if (ANDROID_ALARM_BASE_CMD(cmd) != ANDROID_ALARM_SET_AND_WAIT(0)
 		    && cmd != ANDROID_ALARM_SET_AND_WAIT_OLD)
@@ -250,7 +263,7 @@ static void alarm_triggered(struct alarm *alarm)
 	unsigned long flags;
 	uint32_t alarm_type_mask = 1U << alarm->type;
 
-	pr_alarm(INT, "alarm_triggered type %d\n", alarm->type);
+*/
 	spin_lock_irqsave(&alarm_slock, flags);
 	if (alarm_enabled & alarm_type_mask) {
 		wake_lock_timeout(&alarm_wake_lock, 5 * HZ);
@@ -284,7 +297,10 @@ static int __init alarm_dev_init(void)
 		return err;
 
 	for (i = 0; i < ANDROID_ALARM_TYPE_COUNT; i++)
+	{
 		alarm_init(&alarms[i], i, alarm_triggered);
+		//pr_debug("PM_DEBUG_MXP: alarm_init: type %d",i);
+	}	
 	wake_lock_init(&alarm_wake_lock, WAKE_LOCK_SUSPEND, "alarm");
 
 	return 0;

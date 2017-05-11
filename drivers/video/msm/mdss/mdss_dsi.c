@@ -312,7 +312,6 @@ static int mdss_dsi_off(struct mdss_panel_data *pdata)
 		return 0;
 	}
 
-	printk("ljs %s\n", __func__);
 	pdata->panel_info.panel_power_on = 0;
 
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
@@ -370,8 +369,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		pr_warn("%s:%d Panel already on.\n", __func__, __LINE__);
 		return 0;
 	}
-	
-	printk("ljs %s\n", __func__);
+
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
@@ -409,7 +407,7 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 		return ret;
 	}
 
-//	pdata->panel_info.panel_power_on = 1; // ljs modified for lp11_init 20140616
+	pdata->panel_info.panel_power_on = 1;
 	mdss_dsi_phy_sw_reset((ctrl_pdata->ctrl_base));
 	mdss_dsi_phy_init(pdata);
 	mdss_dsi_bus_clk_stop(ctrl_pdata);
@@ -501,8 +499,6 @@ int mdss_dsi_on(struct mdss_panel_data *pdata)
 	}
 	if (pdata->panel_info.mipi.init_delay)
 		usleep(pdata->panel_info.mipi.init_delay);
-
-	pdata->panel_info.panel_power_on = 1; // ljs modified for lp11_init 20140616
 
 	if (mipi->force_clk_lane_hs) {
 		u32 tmp;
@@ -769,13 +765,13 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 		return -EINVAL;
 	}
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
-				panel_data);
-	pr_debug("%s+:event=%d\n", __func__, event);
-
+				panel_data);	
+    pr_debug("%s+:event=%d\n", __func__, event);
 	MDSS_XLOG(event, arg, ctrl_pdata->ndx, 0x3333);
 
 	switch (event) {
 	case MDSS_EVENT_UNBLANK:
+        pr_err("%s+:event=%d\n", __func__, event);
 		rc = mdss_dsi_on(pdata);
 		mdss_dsi_op_mode_config(pdata->panel_info.mipi.mode,
 							pdata);
@@ -783,15 +779,18 @@ static int mdss_dsi_event_handler(struct mdss_panel_data *pdata,
 			rc = mdss_dsi_unblank(pdata);
 		break;
 	case MDSS_EVENT_PANEL_ON:
+        pr_err("%s+:event=%d\n", __func__, event);
 		ctrl_pdata->ctrl_state |= CTRL_STATE_MDP_ACTIVE;
 		if (ctrl_pdata->on_cmds.link_state == DSI_HS_MODE)
 			rc = mdss_dsi_unblank(pdata);
 		break;
 	case MDSS_EVENT_BLANK:
+        pr_err("%s+:event=%d\n", __func__, event);
 		if (ctrl_pdata->off_cmds.link_state == DSI_HS_MODE)
 			rc = mdss_dsi_blank(pdata);
 		break;
 	case MDSS_EVENT_PANEL_OFF:
+        pr_err("%s+:event=%d\n", __func__, event);
 		ctrl_pdata->ctrl_state &= ~CTRL_STATE_MDP_ACTIVE;
 		if (ctrl_pdata->off_cmds.link_state == DSI_LP_MODE)
 			rc = mdss_dsi_blank(pdata);
@@ -965,6 +964,11 @@ static int __devinit mdss_dsi_ctrl_probe(struct platform_device *pdev)
 		platform_set_drvdata(pdev, ctrl_pdata);
 	}
 
+    
+    pr_err("%s: ctrl_pdata->dsi_cmdlist_put = mdss_dsi_cmdlist_put!\n", __func__);
+    ctrl_pdata->dsi_cmdlist_put = mdss_dsi_cmdlist_put;
+    
+    
 	ctrl_name = of_get_property(pdev->dev.of_node, "label", NULL);
 	if (!ctrl_name)
 		pr_info("%s:%d, DSI Ctrl name not specified\n",
@@ -1329,7 +1333,6 @@ int dsi_panel_device_register(struct device_node *pan_node,
 		pr_err("%s:%d, reset gpio not specified\n",
 						__func__, __LINE__);
 
-	ctrl_pdata->mode_gpio = -1; // lijiangshuo add 20140522
 	if (pinfo->mode_gpio_state != MODE_GPIO_NOT_VALID) {
 
 		ctrl_pdata->mode_gpio = of_get_named_gpio(

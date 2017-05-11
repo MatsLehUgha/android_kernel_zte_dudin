@@ -23,6 +23,14 @@ static struct workqueue_struct *autosleep_wq;
 static DEFINE_MUTEX(autosleep_lock);
 static struct wakeup_source *autosleep_ws;
 
+
+static struct workqueue_struct *wakelockdebug_wq;
+extern void print_wakeup_source(void);
+static void debug_active_wakelock(struct work_struct *work);
+void queue_up_debug_work(void);
+extern void msleep(unsigned int msecs);
+
+
 static void try_to_suspend(struct work_struct *work)
 {
 	unsigned int initial_count, final_count;
@@ -62,6 +70,14 @@ static void try_to_suspend(struct work_struct *work)
 	queue_up_suspend_work();
 }
 
+
+static void debug_active_wakelock(struct work_struct *work)
+{
+    print_wakeup_source();
+    msleep(300000);
+    queue_up_debug_work();
+}
+
 static DECLARE_WORK(suspend_work, try_to_suspend);
 
 void queue_up_suspend_work(void)
@@ -69,6 +85,18 @@ void queue_up_suspend_work(void)
 	if (!work_pending(&suspend_work) && autosleep_state > PM_SUSPEND_ON)
 		queue_work(autosleep_wq, &suspend_work);
 }
+
+
+static DECLARE_WORK(debug_work, debug_active_wakelock);
+
+void queue_up_debug_work(void)
+{
+    if (!work_pending(&debug_work) && autosleep_state > PM_SUSPEND_ON)
+	{
+        queue_work(wakelockdebug_wq, &debug_work);
+	}
+}
+
 
 suspend_state_t pm_autosleep_state(void)
 {
@@ -104,6 +132,9 @@ int pm_autosleep_set_state(suspend_state_t state)
 	if (state > PM_SUSPEND_ON) {
 		pm_wakep_autosleep_enabled(true);
 		queue_up_suspend_work();
+		
+		queue_up_debug_work();
+		
 	} else {
 		pm_wakep_autosleep_enabled(false);
 	}
@@ -119,8 +150,11 @@ int __init pm_autosleep_init(void)
 		return -ENOMEM;
 
 	autosleep_wq = alloc_ordered_workqueue("autosleep", 0);
-	if (autosleep_wq)
+    
+	wakelockdebug_wq = alloc_ordered_workqueue("wakelockdebug", 0);
+	if (autosleep_wq && wakelockdebug_wq)
 		return 0;
+    
 
 	wakeup_source_unregister(autosleep_ws);
 	return -ENOMEM;

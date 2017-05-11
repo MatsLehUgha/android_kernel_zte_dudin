@@ -227,7 +227,6 @@ static long madvise_remove(struct vm_area_struct *vma,
 	endoff = (loff_t)(end - vma->vm_start - 1)
 			+ ((loff_t)vma->vm_pgoff << PAGE_SHIFT);
 
-	/* vmtruncate_range needs to take i_mutex */
 	/*
 	 * vmtruncate_range may need to take i_mutex.  We need to
 	 * explicitly grab a reference because the vma (and hence the
@@ -374,7 +373,7 @@ SYSCALL_DEFINE3(madvise, unsigned long, start, size_t, len_in, int, behavior)
 	if (behavior == MADV_HWPOISON || behavior == MADV_SOFT_OFFLINE)
 		return madvise_hwpoison(behavior, start, start+len_in);
 #endif
-        if (!madvise_behavior_valid(behavior))
+	if (!madvise_behavior_valid(behavior))
 		return error;
 
 	write = madvise_need_mmap_write(behavior);

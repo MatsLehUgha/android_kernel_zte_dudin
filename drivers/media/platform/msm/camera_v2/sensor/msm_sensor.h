@@ -48,6 +48,9 @@ struct msm_sensor_fn_t {
 	int (*sensor_power_down) (struct msm_sensor_ctrl_t *);
 	int (*sensor_power_up) (struct msm_sensor_ctrl_t *);
 	int (*sensor_match_id) (struct msm_sensor_ctrl_t *);
+    
+    int (*sensor_set_opt_setting)(struct msm_sensor_ctrl_t *);
+    
 };
 
 
@@ -68,14 +71,16 @@ struct msm_sensor_ctrl_t {
 	struct v4l2_subdev_ops *sensor_v4l2_subdev_ops;
 	struct msm_sensor_fn_t *func_tbl;
 	struct msm_camera_i2c_reg_setting stop_setting;
+    
+    uint16_t af_otp_macro;
+    uint16_t af_otp_inifity;
+    
 	void *misc_regulator;
 	enum msm_sensor_state_t sensor_state;
 	uint8_t is_probe_succeed;
 	uint32_t id;
 	struct device_node *of_node;
 };
-
-void msm_sensor_misc_regulator(struct msm_sensor_ctrl_t *sctrl, uint32_t enable); //yuxin add 
 
 int msm_sensor_config(struct msm_sensor_ctrl_t *s_ctrl, void __user *argp);
 

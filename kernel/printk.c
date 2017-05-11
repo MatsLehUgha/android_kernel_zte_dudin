@@ -47,7 +47,9 @@
 #include <mach/msm_rtb.h>
 #define CREATE_TRACE_POINTS
 #include <trace/events/printk.h>
+//zte-modify,maxiaoping,20130814,add time info in kernel log,begin
 #include <linux/rtc.h>
+//zte-modify,maxiaoping,20130814,add time info in kernel log,end
 
 
 /*
@@ -69,7 +71,11 @@ void asmlinkage __attribute__((weak)) early_printk(const char *fmt, ...)
 DECLARE_WAIT_QUEUE_HEAD(log_wait);
 
 int console_printk[4] = {
+	#if 0
 	DEFAULT_CONSOLE_LOGLEVEL,	/* console_loglevel */
+	#else
+	0,	/* console_loglevel *//* [ECID:000000] maxiaoping 20140312 console_loglevel, disable consonle output default, can be enabled by zte log tool*/
+	#endif
 	DEFAULT_MESSAGE_LOGLEVEL,	/* default_message_loglevel */
 	MINIMUM_CONSOLE_LOGLEVEL,	/* minimum_console_loglevel */
 	DEFAULT_CONSOLE_LOGLEVEL,	/* default_console_loglevel */
@@ -901,8 +907,10 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 	size_t plen;
 	char special;
 
+//zte-modify,maxiaoping,20130814,add time info in kernel log,begin	
 	struct timespec ts;
 	struct rtc_time tm;
+//zte-modify,maxiaoping,20130814,add time info in kernel log,end
 
 	boot_delay_msec();
 	printk_delay();
@@ -997,6 +1005,7 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 				t = cpu_clock(printk_cpu);
 				nanosec_rem = do_div(t, 1000000000);
 				
+				//zte-modify,maxiaoping,20130814,add time info in kernel log,begin
 				if(t <15)
 				{
 				tlen = sprintf(tbuf, "[%5lu.%06lu] ",
@@ -1010,6 +1019,7 @@ asmlinkage int vprintk(const char *fmt, va_list args)
 				    tlen = sprintf(tbuf, "[%02d-%02d %02d:%02d:%02d.%03d] ",
 						 tm.tm_mon + 1, tm.tm_mday,tm.tm_hour, tm.tm_min, tm.tm_sec, (int)ts.tv_nsec/1000000);
 				}
+				//zte-modify,maxiaoping,20130814,add time info in kernel log,begin
 
 				for (tp = tbuf; tp < tbuf + tlen; tp++)
 					emit_log_char(*tp);
@@ -1401,8 +1411,10 @@ again:
 	raw_spin_lock(&logbuf_lock);
 	if (con_start != log_end)
 		retry = 1;
+	//[ECID:0000]ZTE_SWIII,maxiaoping,20140303,merage patch for Linux kernel 3.4.0 version,start.
 	else
 		retry = 0;
+	//[ECID:0000]ZTE_SWIII,maxiaoping,20140303,merage patch for Linux kernel 3.4.0 version,end.
 	raw_spin_unlock_irqrestore(&logbuf_lock, flags);
 
 	if (retry && console_trylock())
@@ -1895,36 +1907,14 @@ void kmsg_dump(enum kmsg_dump_reason reason)
 }
 #endif
 
-
-int zte_log_switch = 1;
-int zte_log_mask = 0xFFFF;
-
-static int __init log_switch_setup(char *str) 
+//zte-mod,zhangbo,20140312,add for log console,begin
+static int  uartprint_dis=0;
+static int __init uartprint_dis_param(char *opt)
 {
-	if(get_option(&str, &zte_log_switch))
-	{
-	    printk("zte_log_switch = %d\n", zte_log_switch);
-	    return 0;
-	}
-	else
-	{
-	    printk("zte_log_switch get failed \n");
-	    return -EINVAL;
-	}
+	
+	uartprint_dis = 1;
+	console_printk[0]=7;
+	return 0;
 }
-early_param("zte_log_switch", log_switch_setup);
-
-static int __init log_mask_setup(char *str) 
-{
-	if(get_option(&str, &zte_log_mask))
-         {
-	    printk("zte_log_mask = %d\n", zte_log_mask);
-	    return 0;
-	  }
-	else
-	  {
-	    printk("zte_log_mask get failed \n");
-	    return -EINVAL;
-	  }
-}
-early_param("zte_modu_mask", log_mask_setup);
+early_param("uartprint_dis", uartprint_dis_param);
+//zte-mod,zhangbo,20140312,add for log console,end

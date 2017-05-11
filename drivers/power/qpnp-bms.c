@@ -1326,6 +1326,7 @@ static int calculate_termination_uuc(struct qpnp_bms_chip *chip,
 
 	pc_unusable = calculate_pc(chip, unusable_uv, batt_temp);
 	uuc_uah = (params->fcc_uah * pc_unusable) / 100;
+	
 	pr_debug("For uuc_iavg_ma = %d, unusable_rbatt = %d unusable_uv = %d unusable_pc = %d rbatt_pc = %d uuc = %d\n",
 					uuc_iavg_ma,
 					uuc_rbatt_mohm, unusable_uv,
@@ -1394,6 +1395,7 @@ static int calculate_unusable_charge_uah(struct qpnp_bms_chip *chip,
 	 * the shutdown_iavg_ma
 	 */
 	if (chip->first_time_calc_uuc && chip->shutdown_iavg_ma != 0) {
+		
 		pr_debug("Using shutdown_iavg_ma = %d in all samples\n",
 				chip->shutdown_iavg_ma);
 		for (i = 0; i < IAVG_SAMPLES; i++)
@@ -2597,7 +2599,9 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 	int batt_temp, rc, soc;
 	struct qpnp_vadc_result result;
 	struct raw_soc_params raw;
-
+	int zte_batt_uv;
+	int batt_curr;
+	
 	bms_stay_awake(&chip->soc_wake_source);
 	mutex_lock(&chip->vbat_monitor_mutex);
 	if (chip->vbat_monitor_params.state_request !=
@@ -2628,7 +2632,11 @@ static int recalculate_soc(struct qpnp_bms_chip *chip)
 			mutex_unlock(&chip->last_ocv_uv_mutex);
 		}
 	}
+	
+	batt_curr = get_prop_bms_current_now(chip);
+	get_battery_voltage(chip, &zte_batt_uv);
 	bms_relax(&chip->soc_wake_source);
+	printk("PM_DEBUG_MXP: recalculate_soc -> soc = %d,batt_volt = %d,batt_curr = %d.\n",soc,(zte_batt_uv/1000),batt_curr);
 	return soc;
 }
 
@@ -3634,7 +3642,9 @@ static int64_t read_battery_id(struct qpnp_bms_chip *chip)
 					LR_MUX2_BAT_ID, rc);
 		return rc;
 	}
-
+	pr_debug("batt_id phy = %lld meas = 0x%llx\n", result.physical,
+						result.measurement);
+	pr_debug("raw_code = 0x%x\n", result.adc_code);
 	return result.physical;
 }
 
@@ -3645,6 +3655,7 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 	struct bms_battery_data *batt_data;
 	struct device_node *node;
 
+	printk("PM_DEBUG_MXP: set_battery_data:chip->batt_type = %d.\n",chip->batt_type);
 	if (chip->batt_type == BATT_DESAY) {
 		batt_data = &desay_5200_data;
 	} else if (chip->batt_type == BATT_PALLADIUM) {
@@ -3655,9 +3666,11 @@ static int set_battery_data(struct qpnp_bms_chip *chip)
 		batt_data = &QRD_4v35_2000mAh_data;
 	} else if (chip->batt_type == BATT_QRD_4V2_1300MAH) {
 		batt_data = &qrd_4v2_1300mah_data;
-	} else if(chip->batt_type == BATT_ZTE_4V35_2300MAH) {  
-	  batt_data = &zte_4v35_2300mah_data;
-	} 	 else {
+	} else if (chip->batt_type == BATT_ZTE_4V35_2300MAH) {
+		batt_data = &ZTE_4v35_2300mah_data;
+	} else if (chip->batt_type == BATT_ZTE_4V35_2300MAH_N34) {
+		batt_data = &ZTE_4v35_2300mah_data_N34;
+	} else {
 		battery_id = read_battery_id(chip);
 		if (battery_id < 0) {
 			pr_err("cannot read battery id err = %lld\n",
@@ -3722,7 +3735,9 @@ assign_data:
 	chip->default_rbatt_mohm = batt_data->default_rbatt_mohm;
 	chip->rbatt_capacitive_mohm = batt_data->rbatt_capacitive_mohm;
 	chip->flat_ocv_threshold_uv = batt_data->flat_ocv_threshold_uv;
-
+	
+	printk("PM_DEBUG_MXP: chip->fcc_mah = %d,chip->flat_ocv_threshold_uv=%d,chip->default_rbatt_mohm=%d\n",chip->fcc_mah,chip->flat_ocv_threshold_uv,chip->default_rbatt_mohm);
+		
 	/* Override battery properties if specified in the battery profile */
 	if (batt_data->max_voltage_uv >= 0 && dt_data)
 		chip->max_voltage_uv = batt_data->max_voltage_uv;
@@ -3802,7 +3817,8 @@ do {									\
 static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 {
 	int rc = 0;
-
+	
+	printk("PM_DEBUG_MXP: Enter bms_read_properties.\n");
 	SPMI_PROP_READ(r_sense_uohm, "r-sense-uohm", rc);
 	SPMI_PROP_READ(v_cutoff_uv, "v-cutoff-uv", rc);
 	SPMI_PROP_READ(max_voltage_uv, "max-voltage-uv", rc);
@@ -3844,7 +3860,7 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 	chip->use_ocv_thresholds = of_property_read_bool(
 			chip->spmi->dev.of_node,
 			"qcom,use-ocv-thresholds");
-
+	printk("PM_DEBUG_MXP: chip->adjust_soc_low_threshold = %d.\n",chip->adjust_soc_low_threshold);
 	if (chip->adjust_soc_low_threshold >= 45)
 		chip->adjust_soc_low_threshold = 45;
 
@@ -3875,18 +3891,30 @@ static inline int bms_read_properties(struct qpnp_bms_chip *chip)
 		return rc;
 	}
 
-	pr_debug("dts data: r_sense_uohm:%d, v_cutoff_uv:%d, max_v:%d\n",
+	printk("dts data: r_sense_uohm:%d, v_cutoff_uv:%d, max_v:%d\n",
 			chip->r_sense_uohm, chip->v_cutoff_uv,
 			chip->max_voltage_uv);
-	pr_debug("r_conn:%d, shutdown_soc: %d, adjust_soc_low:%d\n",
+	printk("r_conn:%d, shutdown_soc: %d, adjust_soc_low:%d\n",
 			chip->r_conn_mohm, chip->shutdown_soc_valid_limit,
 			chip->adjust_soc_low_threshold);
-	pr_debug("chg_term_ua:%d, batt_type:%d\n",
+	printk("chg_term_ua:%d, batt_type:%d\n",
 			chip->chg_term_ua,
 			chip->batt_type);
-	pr_debug("ignore_shutdown_soc:%d, use_voltage_soc:%d\n",
+	printk("ignore_shutdown_soc:%d, use_voltage_soc:%d\n",
 			chip->ignore_shutdown_soc, chip->use_voltage_soc);
-	pr_debug("use external rsense: %d\n", chip->use_external_rsense);
+	printk("use external rsense: %d\n", chip->use_external_rsense);
+	
+	printk("PM_DEBUG_MXP: chip->low_soc_calc_threshold = %d.\n",chip->low_soc_calc_threshold);
+	printk("PM_DEBUG_MXP: chip->low_soc_calculate_soc_ms = %d.\n",chip->low_soc_calculate_soc_ms);
+	printk("PM_DEBUG_MXP: chip->calculate_soc_ms = %d.\n",chip->calculate_soc_ms);
+	printk("PM_DEBUG_MXP: chip->use_ocv_thresholds = %d.\n",chip->use_ocv_thresholds);
+	printk("PM_DEBUG_MXP: chip->high_ocv_correction_limit_uv = %d.\n",chip->high_ocv_correction_limit_uv);
+	printk("PM_DEBUG_MXP: chip->low_ocv_correction_limit_uv = %d.\n",chip->low_ocv_correction_limit_uv);
+	printk("PM_DEBUG_MXP: chip->hold_soc_est = %d.\n",chip->hold_soc_est);
+	printk("PM_DEBUG_MXP: chip->ocv_high_threshold_uv = %d.\n",chip->ocv_high_threshold_uv);
+	printk("PM_DEBUG_MXP: chip->ocv_low_threshold_uv = %d.\n",chip->ocv_low_threshold_uv);
+	printk("PM_DEBUG_MXP: chip->low_voltage_threshold = %d.\n",chip->low_voltage_threshold);
+	printk("PM_DEBUG_MXP: Exit bms_read_properties.\n");
 	return 0;
 }
 
@@ -4159,13 +4187,8 @@ static int refresh_die_temp_monitor(struct qpnp_bms_chip *chip)
 						+ chip->temperature_margin;
 	chip->die_temp_monitor_params.low_temp = result.physical
 						- chip->temperature_margin;
-	
-	/*
 	chip->die_temp_monitor_params.state_request =
 						ADC_TM_HIGH_LOW_THR_ENABLE;
-	*/
-	chip->die_temp_monitor_params.state_request = ADC_TM_HIGH_LOW_THR_DISABLE;
-	
 	return qpnp_adc_tm_channel_measure(chip->adc_tm_dev,
 					&chip->die_temp_monitor_params);
 }
@@ -4212,6 +4235,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	bool warm_reset;
 	int rc, vbatt;
 
+	printk("PM_DEBUG_MXP: Enter qpnp_bms_probe.\n");
 	chip = devm_kzalloc(&spmi->dev, sizeof(struct qpnp_bms_chip),
 			GFP_KERNEL);
 
@@ -4233,6 +4257,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 	init_waitqueue_head(&chip->bms_wait_queue);
 
 	warm_reset = qpnp_pon_is_warm_reset();
+	printk("PM_DEBUG_MXP: Here warm_reset=%d.\n",warm_reset);
 	rc = warm_reset;
 	if (rc < 0)
 		goto error_read;
@@ -4256,8 +4281,8 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 		pr_err("Error reading version register %d\n", rc);
 		goto error_read;
 	}
-	pr_debug("BMS version: %hhu.%hhu\n", chip->revision2, chip->revision1);
-
+	
+	pr_debug("PM_DEBUG_MXP: BMS version: %hhu.%hhu\n", chip->revision2, chip->revision1);
 	rc = qpnp_read_wrapper(chip, &chip->iadc_bms_revision2,
 			chip->iadc_base + REVISION2, 1);
 	if (rc) {
@@ -4271,7 +4296,9 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 		pr_err("Error reading version register %d\n", rc);
 		goto error_read;
 	}
-	pr_debug("IADC_BMS version: %hhu.%hhu\n",
+
+			
+	pr_debug("PM_DEBUG_MXP: IADC_BMS version: %hhu.%hhu\n",
 			chip->iadc_bms_revision2, chip->iadc_bms_revision1);
 
 	rc = bms_read_properties(chip);
@@ -4286,6 +4313,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 		goto error_read;
 	}
 
+	pr_debug("PM_DEBUG_MXP: chip->use_ocv_thresholds=%d.\n", chip->use_ocv_thresholds);
 	if (chip->use_ocv_thresholds) {
 		rc = set_ocv_voltage_thresholds(chip,
 				chip->ocv_low_threshold_uv,
@@ -4320,6 +4348,7 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 
 	load_shutdown_data(chip);
 
+	pr_debug("PM_DEBUG_MXP: chip->enable_fcc_learning=%d.\n", chip->enable_fcc_learning);
 	if (chip->enable_fcc_learning) {
 		if (chip->battery_removed) {
 			rc = discard_backup_fcc_data(chip);
@@ -4389,9 +4418,11 @@ static int __devinit qpnp_bms_probe(struct spmi_device *spmi)
 		goto unregister_dc;
 	}
 
-	pr_info("probe success: soc =%d vbatt = %d ocv = %d r_sense_uohm = %u warm_reset = %d\n",
+	printk("PM_DEBUG_MXP: probe success: soc =%d vbatt = %d ocv = %d r_sense_uohm = %u warm_reset = %d\n",
 			get_prop_bms_capacity(chip), vbatt, chip->last_ocv_uv,
 			chip->r_sense_uohm, warm_reset);
+	
+	printk("PM_DEBUG_MXP: Exit qpnp_bms_probe.\n");
 	return 0;
 
 unregister_dc:

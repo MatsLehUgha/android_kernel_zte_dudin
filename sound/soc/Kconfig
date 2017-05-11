@@ -28,7 +28,14 @@ config SND_SOC_AC97_BUS
 
 config SND_SOC_DMAENGINE_PCM
 	bool
-
+# ZTEBSP jiaobaocun 20140421 for headset detection chip FSA8049 start
+config USE_FEATURE_FSA8049
+		 tristate "feature for FSA8049"
+		 default n
+config USE_ONELINE_EXTERNEL_SPK_PA
+		 tristate "feature for oneline externel SPK PA"
+		 default n
+# ZTEBSP jiaobaocun 20140421 for headset detection chip FSA8049 end	
 # All the supported SoCs
 source "sound/soc/atmel/Kconfig"
 source "sound/soc/au1x/Kconfig"

@@ -23,12 +23,6 @@ struct panel_id {
 	u16 type;
 };
 
-/* lijiangshuo add for LCD factory mode 20140430 start */
-#define PANEL_NAME_MAX_LEN 50
-#define YUSHUN_NT35521_720_1280_5P0_P826N33_NAME "nt35521 yushun 720p video mode dsi panel"
-#define LEAD_HX8394D_720_1280_5P0_P826N33_NAME "hx8394d lead 720p video mode dsi panel"
-/* lijiangshuo add for LCD factory mode 20140430 end */
-
 #define DEFAULT_FRAME_RATE	60
 #define MDSS_DSI_RST_SEQ_LEN	10
 
@@ -46,6 +40,27 @@ struct panel_id {
 #define WRITEBACK_PANEL		10	/* Wifi display */
 #define LVDS_PANEL		11	/* LVDS */
 #define EDP_PANEL		12	/* LVDS */
+
+
+enum {
+    LCD_PANEL_NOPANEL,
+    OTM8018B_LEAD_FWVGA_VIDEO_PANEL = 1,
+    ILI9806E_YASSY_FWVGA_VIDEO_PANEL,
+    OTM9605A_BOOYI_QHD_VIDEO_PANEL,
+    HX8379_YUSHUN_FWVGA_VIDEO_PANEL,    
+    OTM1283A_BOE_720P_VIDEO_PANEL = 20,
+    OTM1283A_AUO_720P_VIDEO_PANEL,
+    OTM1283A_CPT_720P_VIDEO_PANEL,
+    NT35590_TIANMA_720P_VIDEO_PANEL,
+    NT35590_TIANMA_OTP_720P_VIDEO_PANEL = 24,
+    NT35590_AUO_720P_VIDEO_PANEL,
+    
+    HX8394D_LEAD_720P_5P5_VIDEO_PANEL = 50,
+    HX8394D_TIANMA_720P_5P5_VIDEO_PANEL,
+    R61318A1_YUSHUN_720P_5P5_VIDEO_PANEL,
+    LCD_PANEL_MAX
+};
+
 
 /* panel class */
 enum {

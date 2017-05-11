@@ -26,7 +26,9 @@
 
 #define DT_CMD_HDR 6
 
-char LcdPanelName[50] = {0}; // lijiangshuo add for LCD factory mode 20140430
+
+extern int panel_id_from_lk;
+
 
 DEFINE_LED_TRIGGER(bl_led_trigger);
 
@@ -131,84 +133,144 @@ static void mdss_dsi_panel_cmds_send(struct mdss_dsi_ctrl_pdata *ctrl,
 	mdss_dsi_cmdlist_put(ctrl, &cmdreq);
 }
 
-/* lijiangshuo add for LCD ESD test 20140522 start */
-int mdss_dsi_panel_status_check(struct mdss_dsi_ctrl_pdata *ctrl)
-{
-    	char rf[3] = {0x10, 0x10, 0x10};
-	int ret = 0;
-	int data, hs_mode = 0;
-	
-	/* if now is high speed mode, change it to low power mode */
-	data = MIPI_INP(ctrl->ctrl_base  + 0x38);
-	if((data & BIT(26)) == 0)
-	{
-		hs_mode = 1;
-		data |= BIT(26);
-		MIPI_OUTP(ctrl->ctrl_base  + 0x38, data);
-	}
-	
-	if (!strncmp(LcdPanelName, LEAD_HX8394D_720_1280_5P0_P826N33_NAME, strnlen(LEAD_HX8394D_720_1280_5P0_P826N33_NAME, PANEL_NAME_MAX_LEN)))
-	{
-		mdss_dsi_panel_cmd_read(ctrl, 0x09, 0x00, NULL, rf, 3); // rlen=3 for LREAD RESPONSE lijiangshuo 20140619
-		printk("ljs hx8394d 0x09[0]=%x  0x09[1]=%x\n", rf[0], rf[1]);
-		if((rf[0] !=0x80) || (rf[1] !=0x73))
-		{
-			ret = -1;
-			goto end;
-		}
-		
-		mdss_dsi_panel_cmd_read(ctrl, 0x0a, 0x00, NULL, rf, 3);// rlen=3 for LREAD RESPONSE lijiangshuo 20140619
-		printk("ljs hx8394d 0x0a=%x\n", rf[0]);
-		if(rf[0] !=0x1c)
-		{
-			ret = -1;
-			goto end;
-		}
-	}
-	else if (!strncmp(LcdPanelName, YUSHUN_NT35521_720_1280_5P0_P826N33_NAME, strnlen(YUSHUN_NT35521_720_1280_5P0_P826N33_NAME, PANEL_NAME_MAX_LEN)))
-	{
-	    mdss_dsi_panel_cmd_read(ctrl, 0x0a, 0x00, NULL, rf, 1);
-		printk("ljs nt35521 0x0a=%x\n", rf[0]);
-		if(rf[0] !=0x9c)
-		{
-			ret = -1;
-			goto end;
-		}
-	}
 
-end:
-	/* if needed, reset it back to high speed mode */
-	if(hs_mode)
-	{
-		data = MIPI_INP(ctrl->ctrl_base  + 0x38);
-		data &= ~(BIT(26));
-		MIPI_OUTP(ctrl->ctrl_base  + 0x38, data);
-	}
-	
-	return ret;
-}
-/* lijiangshuo add for LCD ESD test 20140522 end */
+#if 1
+static char otm1283a_boe_para_CABC_0x53_off[2] = {0x53, 0x00};	
+static struct dsi_cmd_desc otm1283a_boe_display_off_CABC_backlight_cmds = {
+	{DTYPE_GEN_LWRITE, 1, 0, 0, 1, sizeof(otm1283a_boe_para_CABC_0x53_off)}, 
+     otm1283a_boe_para_CABC_0x53_off
+};
 
+static char otm1283a_boe_para_CABC_0x51[2]={0x51,0xff};
+static char otm1283a_boe_para_CABC_0x53[2]={0x53,0x2c};
+
+static struct dsi_cmd_desc otm1283a_boe_display_on_CABC_backlight_cmds[] = {
+	{{DTYPE_GEN_LWRITE, 1, 0, 0, 20, sizeof(otm1283a_boe_para_CABC_0x51)}, 
+     otm1283a_boe_para_CABC_0x51},
+	{{DTYPE_GEN_LWRITE, 1, 0, 0, 20, sizeof(otm1283a_boe_para_CABC_0x53)},
+	otm1283a_boe_para_CABC_0x53},
+
+};
+
+*/
+static struct dsi_cmd_desc nt35590_display_off_CABC_backlight_cmds = {
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(nt35590_para_CABC_0x53_off)}, 
+     nt35590_para_CABC_0x53_off
+};
+
+static char nt35590_para_CABC_0x51[2]={0x51,0xff};
+static char nt35590_para_CABC_0x53[2]={0x53,0x2c};
+static struct dsi_cmd_desc nt35590_display_on_CABC_backlight_cmds[] = {
+	{{DTYPE_DCS_WRITE1, 1, 0, 0, 20, sizeof(nt35590_para_CABC_0x51)}, 
+     nt35590_para_CABC_0x51},
+	{{DTYPE_DCS_WRITE1, 1, 0, 0, 20, sizeof(nt35590_para_CABC_0x53)},
+	nt35590_para_CABC_0x53},
+};
+
+#if 1
+*/
+static struct dsi_cmd_desc hx8394d_lead_display_off_CABC_backlight_cmds = {
+	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(hx8394d_lead_para_CABC_0x53_off)}, 
+     hx8394d_lead_para_CABC_0x53_off
+};
+
+static char hx8394d_lead_para_CABC_0x51[2]={0x51,0xff};
+static char hx8394d_lead_para_CABC_0x53[2]={0x53,0x2c};
+static char hx8394d_lead_para_CABC_0x55[2]={0x55,0x01};
+static char hx8394d_lead_ce4[3] = {0xE4,0x03,0x01};//CE 0xFD,0x01};
+static struct dsi_cmd_desc hx8394d_lead_display_on_CABC_backlight_cmds[] = {
+	{{DTYPE_DCS_WRITE1, 1, 0, 0, 5, sizeof(hx8394d_lead_para_CABC_0x51)}, 
+     hx8394d_lead_para_CABC_0x51},     
+	{{DTYPE_DCS_WRITE1, 1, 0, 0, 5, sizeof(hx8394d_lead_para_CABC_0x53)},
+     hx8394d_lead_para_CABC_0x53},
+	{{DTYPE_DCS_WRITE1, 1, 0, 0, 20, sizeof(hx8394d_lead_para_CABC_0x55)}, 
+     hx8394d_lead_para_CABC_0x55},
+    {{DTYPE_DCS_LWRITE, 1, 0, 0, 20, sizeof(hx8394d_lead_ce4)}, 
+     hx8394d_lead_ce4}
+};
+#endif
+
+#if 0
+*/
+static struct dsi_cmd_desc hx8394a_tm_display_off_CABC_backlight_cmds = {
+	{DTYPE_DCS_LWRITE, 1, 0, 0, 1, sizeof(hx8394a_tm_para_CABC_0x53_off)}, 
+     hx8394a_tm_para_CABC_0x53_off
+};
+
+static char hx8394a_tm_para_CABC_0x51[2]={0x51,0xff};
+static char hx8394a_tm_para_CABC_0x53[2]={0x53,0x2c};
+static struct dsi_cmd_desc hx8394a_tm_display_on_CABC_backlight_cmds[] = {
+	{{DTYPE_DCS_LWRITE, 1, 0, 0, 20, sizeof(hx8394a_tm_para_CABC_0x51)}, 
+     hx8394a_tm_para_CABC_0x51},
+	{{DTYPE_DCS_LWRITE, 1, 0, 0, 20, sizeof(hx8394a_tm_para_CABC_0x53)},
+	hx8394a_tm_para_CABC_0x53}
+};
+#endif
+#endif
+
+#if 0
 static char led_pwm1[2] = {0x51, 0x0};	/* DTYPE_DCS_WRITE1 */
 static struct dsi_cmd_desc backlight_cmd = {
 	{DTYPE_DCS_WRITE1, 1, 0, 0, 1, sizeof(led_pwm1)},
 	led_pwm1
 };
+#endif
+//zte-modify,20131105,yyp,sleep or wake up display white, end
 
 static void mdss_dsi_panel_bklt_dcs(struct mdss_dsi_ctrl_pdata *ctrl, int level)
 {
 	struct dcs_cmd_req cmdreq;
-	printk("ljs %s bl_level = %d\n", __func__, level);
 
-	pr_debug("%s: level=%d\n", __func__, level);
-
-	led_pwm1[1] = (unsigned char)level;
+	pr_err("%s: level=%d panel_id_from_lk=%d\n", __func__, level, panel_id_from_lk);
 
 	memset(&cmdreq, 0, sizeof(cmdreq));
+
+    //zte-modify,20131105,yyp,sleep or wake up display white, begin
+    #if 1
+    if(NT35590_TIANMA_720P_VIDEO_PANEL == panel_id_from_lk 
+       || NT35590_TIANMA_OTP_720P_VIDEO_PANEL == panel_id_from_lk
+       || NT35590_AUO_720P_VIDEO_PANEL == panel_id_from_lk
+       || R61318A1_YUSHUN_720P_5P5_VIDEO_PANEL == panel_id_from_lk) {
+    	if(0 == level) {
+            cmdreq.cmds = &nt35590_display_off_CABC_backlight_cmds;
+            cmdreq.cmds_cnt = 1;
+        } else {
+            nt35590_para_CABC_0x51[1] = (unsigned char)level;
+            cmdreq.cmds = nt35590_display_on_CABC_backlight_cmds;
+            cmdreq.cmds_cnt = 2;
+        }
+    } else if(HX8394D_LEAD_720P_5P5_VIDEO_PANEL == panel_id_from_lk 
+     || HX8394D_TIANMA_720P_5P5_VIDEO_PANEL == panel_id_from_lk) {
+        if(0 == level) {
+            cmdreq.cmds = &hx8394d_lead_display_off_CABC_backlight_cmds;
+            cmdreq.cmds_cnt = 1;
+        } else {
+            hx8394d_lead_para_CABC_0x51[1] = (unsigned char)level;
+            cmdreq.cmds = hx8394d_lead_display_on_CABC_backlight_cmds;
+            cmdreq.cmds_cnt = 4;
+        }
+    } else {
+        if(0 == level) {
+            cmdreq.cmds = &otm1283a_boe_display_off_CABC_backlight_cmds;
+            cmdreq.cmds_cnt = 1;
+        } else {
+            otm1283a_boe_para_CABC_0x51[1] = (unsigned char)level;
+            cmdreq.cmds = otm1283a_boe_display_on_CABC_backlight_cmds;
+            cmdreq.cmds_cnt = 2;
+        }
+    }
+    
+    cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL | CMD_REQ_LP_MODE;
+    #endif
+    
+    #if 0
+    led_pwm1[1] = (unsigned char)level;
 	cmdreq.cmds = &backlight_cmd;
 	cmdreq.cmds_cnt = 1;
-	
-	cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
+    cmdreq.flags = CMD_REQ_COMMIT | CMD_CLK_CTRL;
+    #endif
+    //zte-modify,20131105,yyp,sleep or wake up display white, end
+    
 	cmdreq.rlen = 0;
 	cmdreq.cb = NULL;
 
@@ -258,8 +320,10 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	struct mdss_dsi_ctrl_pdata *ctrl_pdata = NULL;
 	struct mdss_panel_info *pinfo = NULL;
 	int i, rc = 0;
-	printk("ljs %s enable=%d\n", __func__, enable);
 
+    uint32_t vsp_gpio = 2;
+    uint32_t vsn_gpio = 3;
+    
 	if (pdata == NULL) {
 		pr_err("%s: Invalid input data\n", __func__);
 		return -EINVAL;
@@ -283,6 +347,74 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 	pinfo = &(ctrl_pdata->panel_data.panel_info);
 
 	if (enable) {
+        //zte-modify,20140514,yyp,add lcd driver for p826n50, begin
+        #if 1
+        if(HX8394D_LEAD_720P_5P5_VIDEO_PANEL == panel_id_from_lk 
+            || HX8394D_TIANMA_720P_5P5_VIDEO_PANEL == panel_id_from_lk
+            || R61318A1_YUSHUN_720P_5P5_VIDEO_PANEL == panel_id_from_lk) {
+            if (gpio_is_valid(vsp_gpio)) {
+        		rc = gpio_request(vsp_gpio,	"disp_vdd_enp_5");
+        		if (rc) {
+        			pr_err("%s: request disp_vdd_enp gpio failed, rc=%d\n", __func__, rc);
+        		}
+        	} else {
+        	    pr_err("%s: disp_vdd_enp gpio invalid!!\n", __func__);
+        	}
+
+            if (gpio_is_valid(vsn_gpio)) {
+        		rc = gpio_request(vsn_gpio,	"disp_vdd_enn_-5");
+        		if (rc) {
+        			pr_err("%s: request disp_vdd_enn gpio failed, rc=%d\n", __func__, rc);
+        		}
+        	} else {
+        	    pr_err("%s: disp_vdd_enn gpio invalid!!\n", __func__);
+        	}
+
+            pr_err("%s: enable disp_vdd_enn disp_vdd_enp gpio\n", __func__);
+            if (gpio_is_valid(vsp_gpio)) {
+                gpio_tlmm_config(GPIO_CFG(
+                                        vsp_gpio, 0,
+                                        GPIO_CFG_OUTPUT,
+                                        GPIO_CFG_PULL_DOWN,
+                                        GPIO_CFG_4MA),
+                                        GPIO_CFG_ENABLE);
+                msleep(6);
+*/
+    			gpio_set_value(vsp_gpio, 1);            
+                msleep(6);
+            }
+            
+            
+            if (gpio_is_valid(vsn_gpio)) {
+                gpio_tlmm_config(GPIO_CFG(
+                                        vsn_gpio, 0,
+                                        GPIO_CFG_OUTPUT,
+                                        GPIO_CFG_PULL_DOWN,
+                                        GPIO_CFG_4MA),
+                                        GPIO_CFG_ENABLE);
+                msleep(6);
+*/
+    			gpio_set_value(vsn_gpio, 1);
+                msleep(6);
+            }
+
+            #if 0
+            pr_err("%s: Setting +-5V for lcd panels\n", __func__);
+            gpio_request(vsn_gpio,	"disp_vdd_enn_-5");
+            gpio_tlmm_config(GPIO_CFG(
+                                        vsn_gpio, 0,
+                                        GPIO_CFG_OUTPUT,
+                                        GPIO_CFG_PULL_DOWN,
+                                        GPIO_CFG_4MA),
+                                        GPIO_CFG_ENABLE);
+            msleep(12);
+*/
+*/
+            msleep(12);
+            #endif
+        }
+        #endif
+        //zte-modify,20140514,yyp,add lcd driver for p826n50, end
 		rc = mdss_dsi_request_gpios(ctrl_pdata);
 		if (rc) {
 			pr_err("gpio request failed\n");
@@ -322,6 +454,27 @@ int mdss_dsi_panel_reset(struct mdss_panel_data *pdata, int enable)
 		gpio_free(ctrl_pdata->rst_gpio);
 		if (gpio_is_valid(ctrl_pdata->mode_gpio))
 			gpio_free(ctrl_pdata->mode_gpio);
+
+        //zte-modify,20140514,yyp,add lcd driver for p826n50, begin
+        #if 1
+        if(HX8394D_LEAD_720P_5P5_VIDEO_PANEL == panel_id_from_lk 
+            || HX8394D_TIANMA_720P_5P5_VIDEO_PANEL == panel_id_from_lk
+            || R61318A1_YUSHUN_720P_5P5_VIDEO_PANEL == panel_id_from_lk) {
+            pr_err("%s: disable disp_vdd_enn disp_vdd_enp gpio\n", __func__);
+            if (gpio_is_valid(vsp_gpio)) {
+                msleep(6);
+*/
+                gpio_free(vsp_gpio);
+                msleep(12);
+            }
+            if (gpio_is_valid(vsn_gpio)) {
+*/
+                gpio_free(vsn_gpio);
+                msleep(12);
+            }
+        }
+        #endif
+        //zte-modify,20140514,yyp,add lcd driver for p826n50, end
 	}
 	return rc;
 }
@@ -405,6 +558,9 @@ static void mdss_dsi_panel_bl_ctrl(struct mdss_panel_data *pdata,
 	ctrl_pdata = container_of(pdata, struct mdss_dsi_ctrl_pdata,
 				panel_data);
 
+    pr_debug("%s: ctrl_pdata->bklt_ctrl=%d bl_level=%d\n", 
+        __func__, ctrl_pdata->bklt_ctrl, bl_level);
+    
 	/*
 	 * Some backlight controllers specify a minimum duty cycle
 	 * for the backlight brightness. If the brightness is less
@@ -460,7 +616,6 @@ static int mdss_dsi_panel_on(struct mdss_panel_data *pdata)
 	if (ctrl->on_cmds.cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->on_cmds);
 
-	printk("ljs %s panel=%s on_cmds send\n", __func__, LcdPanelName);
 	pr_debug("%s:-\n", __func__);
 	return 0;
 }
@@ -485,7 +640,6 @@ static int mdss_dsi_panel_off(struct mdss_panel_data *pdata)
 	if (ctrl->off_cmds.cmd_cnt)
 		mdss_dsi_panel_cmds_send(ctrl, &ctrl->off_cmds);
 
-	printk("ljs %s panel=%s off_cmds send\n", __func__, LcdPanelName);
 	pr_debug("%s:-\n", __func__);
 	return 0;
 }
@@ -532,6 +686,7 @@ static void mdss_dsi_parse_trigger(struct device_node *np, char *trigger,
 			*trigger = DSI_CMD_TRIGGER_SW_TE;
 	}
 }
+
 
 static int mdss_dsi_parse_dcs_cmds(struct device_node *np,
 		struct dsi_panel_cmds *pcmds, char *cmd_key, char *link_key)
@@ -769,6 +924,7 @@ static int mdss_dsi_parse_reset_seq(struct device_node *np,
 	return 0;
 }
 
+
 static int mdss_panel_parse_dt(struct device_node *np,
 			struct mdss_dsi_ctrl_pdata *ctrl_pdata)
 {
@@ -837,18 +993,18 @@ static int mdss_panel_parse_dt(struct device_node *np,
 		"qcom,mdss-dsi-panel-destination", NULL);
 
 	if (pdest) {
-	if (strlen(pdest) != 9) {
-		pr_err("%s: Unknown pdest specified\n", __func__);
-		return -EINVAL;
-	}
+		if (strlen(pdest) != 9) {
+			pr_err("%s: Unknown pdest specified\n", __func__);
+			return -EINVAL;
+		}
 		if (!strcmp(pdest, "display_1"))
 			pinfo->pdest = DISPLAY_1;
 		else if (!strcmp(pdest, "display_2"))
-		pinfo->pdest = DISPLAY_2;
-	else {
-		pr_debug("%s: pdest not specified. Set Default\n",
-							__func__);
-		pinfo->pdest = DISPLAY_1;
+			pinfo->pdest = DISPLAY_2;
+		else {
+			pr_debug("%s: pdest not specified. Set Default\n",
+								__func__);
+			pinfo->pdest = DISPLAY_1;
 		}
 	} else {
 		pr_err("%s: pdest not specified\n", __func__);
@@ -986,6 +1142,7 @@ static int mdss_panel_parse_dt(struct device_node *np,
 		"qcom,mdss-dsi-lane-2-state");
 	pinfo->mipi.data_lane3 = of_property_read_bool(np,
 		"qcom,mdss-dsi-lane-3-state");
+
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-t-clk-pre", &tmp);
 	pinfo->mipi.t_clk_pre = (!rc ? tmp : 0x24);
 	rc = of_property_read_u32(np, "qcom,mdss-dsi-t-clk-post", &tmp);
@@ -1028,6 +1185,7 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	pinfo->mipi.init_delay = (!rc ? tmp : 0);
 
 	mdss_dsi_parse_fbc_params(np, pinfo);
+
 	mdss_dsi_parse_trigger(np, &(pinfo->mipi.mdp_trigger),
 		"qcom,mdss-dsi-mdp-trigger");
 
@@ -1039,8 +1197,17 @@ static int mdss_panel_parse_dt(struct device_node *np,
 	mdss_dsi_parse_reset_seq(np, pinfo->rst_seq, &(pinfo->rst_seq_len),
 		"qcom,mdss-dsi-reset-sequence");
 
-	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->on_cmds,
-		"qcom,mdss-dsi-on-command", "qcom,mdss-dsi-on-command-state");
+    //zte-modify,20140310,yyp,add lcd driver for p826n34, begin
+    pr_err("%s: panel_id_from_lk=%d\n", __func__, panel_id_from_lk);
+    if(24 == panel_id_from_lk) {//for tianma otp panel
+        pr_err("%s: parse otp panel dsi on command\n", __func__);
+	    mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->on_cmds,
+		    "qcom,mdss-dsi-on-otp-command", "qcom,mdss-dsi-on-command-state");
+    } else {
+        mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->on_cmds,
+    		"qcom,mdss-dsi-on-command", "qcom,mdss-dsi-on-command-state");
+    }
+    //zte-modify,20140310,yyp,add lcd driver for p826n34, end
 
 	mdss_dsi_parse_dcs_cmds(np, &ctrl_pdata->off_cmds,
 		"qcom,mdss-dsi-off-command", "qcom,mdss-dsi-off-command-state");
@@ -1067,13 +1234,12 @@ int mdss_dsi_panel_init(struct device_node *node,
 
 	pr_debug("%s:%d\n", __func__, __LINE__);
 	panel_name = of_get_property(node, "qcom,mdss-dsi-panel-name", NULL);
+    printk("%s: panel_name=%s\n", __func__, panel_name);
 	if (!panel_name)
 		pr_info("%s:%d, Panel name not specified\n",
 						__func__, __LINE__);
 	else
 		pr_info("%s: Panel Name = %s\n", __func__, panel_name);
-	
-	strcpy(LcdPanelName, panel_name); //lijiangshuo add for compatible 20140416
 
 	rc = mdss_panel_parse_dt(node, ctrl_pdata);
 	if (rc) {
@@ -1112,7 +1278,6 @@ int mdss_dsi_panel_init(struct device_node *node,
 	ctrl_pdata->on = mdss_dsi_panel_on;
 	ctrl_pdata->off = mdss_dsi_panel_off;
 	ctrl_pdata->panel_data.set_backlight = mdss_dsi_panel_bl_ctrl;
-	ctrl_pdata->check_lcd_status = mdss_dsi_panel_status_check; // lijiangshuo add for LCD ESD test 20140522
 
 	return 0;
 }

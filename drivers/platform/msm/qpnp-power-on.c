@@ -24,17 +24,16 @@
 #include <linux/log2.h>
 #include <linux/qpnp/power-on.h>
 
+ 
+#include <linux/wakelock.h>
+extern int boot_is_poweroff_charger(void);
+ 
 #define PMIC_VER_8941           0x01
 #define PMIC_VERSION_REG        0x0105
 #define PMIC_VERSION_REV4_REG   0x0103
 
 #define PMIC8941_V1_REV4        0x01
 #define PMIC8941_V2_REV4        0x02
-
-/*maxiaoping 20140113 modify for power_off_charging pwrkey report,start.*/ 
-#include <linux/wakelock.h>
-extern int boot_is_poweroff_charger(void);
-/*maxiaoping 20140113 modify for power_off_charging pwrkey report,end.*/ 
 
 /* Common PNP defines */
 #define QPNP_PON_REVISION2(base)		(base + 0x01)
@@ -139,7 +138,7 @@ struct qpnp_pon {
 	int num_pon_config;
 	u16 base;
 	struct delayed_work bark_work;
-	struct wake_lock pwr_key_wake_lock;/*maxiaoping 20140113 modify for power_off_charging pwrkey report.*/ 
+	struct wake_lock pwr_key_wake_lock; 
 };
 
 static struct qpnp_pon *sys_reset_dev;
@@ -364,7 +363,7 @@ qpnp_get_cfg(struct qpnp_pon *pon, u32 pon_type)
 	return NULL;
 }
 
-/*maxiaoping 20140113 modify for power_off_charging pwrkey report,start.*/ 
+ 
 static int
 qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 {
@@ -373,7 +372,7 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	u8 pon_rt_sts = 0, pon_rt_bit = 0;
 	static int wake_lock_enable = 0;
 	
-	//printk("PM_DEBUG_MXP: Enter qpnp_pon_input_dispatch.\n");
+	
 	cfg = qpnp_get_cfg(pon, pon_type);
 	if (!cfg)
 		return -EINVAL;
@@ -391,10 +390,10 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	}
 
 	printk("PM_DEBUG_MXP: pon_rt_sts = %d.\n",pon_rt_sts);
-	//printk("PM_DEBUG_MXP: cfg->pon_type = %d.\n",cfg->pon_type);
+	
 	switch (cfg->pon_type) {
 	case PON_KPDPWR:
-		pon_rt_bit = QPNP_PON_KPDPWR_N_SET;//add pwrkey detect code here.
+		pon_rt_bit = QPNP_PON_KPDPWR_N_SET;
 		if(QPNP_PON_KPDPWR_N_SET == (pon_rt_sts & QPNP_PON_KPDPWR_N_SET))
 		{
 			printk("PM_DEBUG_MXP: PowerKey pressed.\n");
@@ -426,10 +425,10 @@ qpnp_pon_input_dispatch(struct qpnp_pon *pon, u32 pon_type)
 	if((1 == wake_lock_enable)&&(boot_is_poweroff_charger()))
 	wake_lock_timeout(&pon->pwr_key_wake_lock, 2 * HZ);
 	
-	//printk("PM_DEBUG_MXP: Enter qpnp_pon_input_dispatch.\n");
+	
 	return 0;
 }
-/*maxiaoping 20140113 modify for power_off_charging pwrkey report,end.*/ 
+ 
 
 static irqreturn_t qpnp_kpdpwr_irq(int irq, void *_pon)
 {
@@ -1095,6 +1094,7 @@ free_input_dev:
 	return rc;
 }
 
+
 static u8 pon_registers[8] = { 0 };
 
 int print_pon_registers(char *buffer, int len)
@@ -1142,6 +1142,7 @@ static int __devinit dump_pon_registers(void)
 	return rc;
 }
 
+
 static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 {
 	struct qpnp_pon *pon;
@@ -1153,6 +1154,7 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 	const char *s3_src;
 	u8 s3_src_reg;
 
+	printk("PM_DEBUG_MXP: Enter qpnp_pon_probe.\n");
 	pon = devm_kzalloc(&spmi->dev, sizeof(struct qpnp_pon),
 							GFP_KERNEL);
 	if (!pon) {
@@ -1162,6 +1164,9 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 
 	sys_reset = of_property_read_bool(spmi->dev.of_node,
 						"qcom,system-reset");
+	
+	printk("PM_DEBUG_MXP: sys_reset = %d.\n",sys_reset);
+	
 	if (sys_reset && sys_reset_dev) {
 		dev_err(&spmi->dev, "qcom,system-reset property can only be specified for one device on the system\n");
 		return -EINVAL;
@@ -1175,6 +1180,7 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 	while ((itr = of_get_next_child(spmi->dev.of_node, itr)))
 		pon->num_pon_config++;
 
+	printk("PM_DEBUG_MXP: pon->num_pon_config = %d.\n",pon->num_pon_config);
 	if (!pon->num_pon_config) {
 		/* No PON config., do not register the driver */
 		dev_err(&spmi->dev, "No PON config. specified\n");
@@ -1191,7 +1197,8 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 		return -ENXIO;
 	}
 	pon->base = pon_resource->start;
-
+	
+	
 	/* PON reason */
 	rc = spmi_ext_register_readl(pon->spmi->ctrl, pon->spmi->sid,
 				QPNP_PON_REASON1(pon->base), &pon_sts, 1);
@@ -1209,9 +1216,9 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 	printk("PMIC@SID%d Power-on reason: %s and '%s' boot\n",
 		pon->spmi->sid, index ? qpnp_pon_reason[index - 1] :
 		"Unknown", cold_boot ? "cold" : "warm");
-
+	
 	rc = dump_pon_registers();
-
+	
 	rc = of_property_read_u32(pon->spmi->dev.of_node,
 				"qcom,pon-dbc-delay", &delay);
 	if (rc) {
@@ -1286,9 +1293,9 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 
 	INIT_DELAYED_WORK(&pon->bark_work, bark_work_func);
 	
-	/*maxiaoping 20140113 modify for power_off_charging pwrkey report,start.*/ 
+	 
 	wake_lock_init(&pon->pwr_key_wake_lock, WAKE_LOCK_SUSPEND, "zte_pwr_key_press_event");
-	/*maxiaoping 20140113 modify for power_off_charging pwrkey report,end.*/ 
+	 
 	
 	/* register the PON configurations */
 	rc = qpnp_pon_config_init(pon);
@@ -1297,7 +1304,8 @@ static int __devinit qpnp_pon_probe(struct spmi_device *spmi)
 			"Unable to intialize PON configurations\n");
 		return rc;
 	}
-
+	
+	printk("PM_DEBUG_MXP: Exit qpnp_pon_probe.\n");
 	return rc;
 }
 

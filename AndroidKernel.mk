@@ -1,6 +1,11 @@
 #Android makefile to build kernel as a part of Android Build
 PERL		= perl
 
+KERNEL_TARGET := $(strip $(INSTALLED_KERNEL_TARGET))
+ifeq ($(KERNEL_TARGET),)
+INSTALLED_KERNEL_TARGET := $(PRODUCT_OUT)/kernel
+endif
+
 ifeq ($(TARGET_PREBUILT_KERNEL),)
 
 KERNEL_OUT := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ
@@ -44,7 +49,6 @@ $(info Using uncompressed kernel)
 TARGET_PREBUILT_KERNEL := $(KERNEL_OUT)/piggy
 else
 TARGET_PREBUILT_KERNEL := $(TARGET_PREBUILT_INT_KERNEL)
-TARGET_PREBUILT_INT_KERNEL := $(KERNEL_OUT)/arch/arm/boot/zImage-dtb
 endif
 
 define mv-modules

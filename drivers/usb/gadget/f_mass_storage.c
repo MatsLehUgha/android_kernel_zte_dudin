@@ -451,11 +451,13 @@ struct fsg_dev {
 	struct usb_ep		*bulk_in;
 	struct usb_ep		*bulk_out;
 };
+
 #if defined(CONFIG_USB_MAC)
 static int scsi_build_toc_format0(u8* buf, int msf, int start_track, struct fsg_lun *curlun);
 static int scsi_build_toc_format1(u8* buf, int msf, int start_track, struct fsg_lun *curlun);
 static int scsi_build_toc_format2(u8* buf, int msf, struct fsg_lun *curlun);
 #endif
+
 
 static inline int __fsg_is_set(struct fsg_common *common,
 			       const char *func, unsigned line)
@@ -953,11 +955,13 @@ static int do_write(struct fsg_common *common)
 			return -EINVAL;
 		}
 		
+		
 		#if defined(CONFIG_USB_MAC)
-		if (common->cmnd[1] & 0x08) {	/* FUA */
+		if (common->cmnd[1] & 0x08) {	
 		#else
 		if (!curlun->nofua && (common->cmnd[1] & 0x08)) { /* FUA */
 		#endif			
+		
 			spin_lock(&curlun->filp->f_lock);
 			curlun->filp->f_flags |= O_SYNC;
 			spin_unlock(&curlun->filp->f_lock);
@@ -1279,6 +1283,7 @@ static int do_verify(struct fsg_common *common)
 	}
 	return 0;
 }
+
 #if defined(CONFIG_USB_MAC)
 		
 struct ms_get_configration_data_header_type {
@@ -1295,17 +1300,17 @@ struct ms_get_configration_data_feature_type {
 
 static int do_get_configuration(struct fsg_common *common ,struct fsg_buffhd *bh)
 {
-    static  u8 feature_0000[] = {0x00,0x00,0x03,0x04,0x00,0x08,0x00,0x00}; // profile list:CDROM
-    static  u8 feature_0001[] = {0x00,0x01,0x03,0x04,0x00,0x00,0x00,0x02}; // Core
-    static  u8 feature_0002[] = {0x00,0x02,0x03,0x04,0x00,0x00,0x00,0x00}; // 
-    static  u8 feature_0003[] = {0x00,0x03,0x03,0x04,0x29,0x00,0x00,0x00}; // Removable media
+    static  u8 feature_0000[] = {0x00,0x00,0x03,0x04,0x00,0x08,0x00,0x00}; 
+    static  u8 feature_0001[] = {0x00,0x01,0x03,0x04,0x00,0x00,0x00,0x02}; 
+    static  u8 feature_0002[] = {0x00,0x02,0x03,0x04,0x00,0x00,0x00,0x00}; 
+    static  u8 feature_0003[] = {0x00,0x03,0x03,0x04,0x29,0x00,0x00,0x00}; 
     static  u8 feature_0010[] = {0x00,0x10,0x00,0x08,0x00,0x00,0x08,0x00,0x00,0x01,0x01,0x00};
-    static  u8 feature_001d[] = {0x00,0x1d,0x00,0x00}; // 
-    static  u8 feature_0100[] = {0x01,0x00,0x03,0x00}; // Power management
-    //static  u8 feature_0103[] = {0x01,0x03,0x00,0x04,0x03,0x00,0x01,0x00}; // 
-    static  u8 feature_0104[] = {0x01,0x04,0x03,0x00}; //
-    static  u8 feature_0105[] = {0x01,0x05,0x03,0x00}; // Timeout
-    static  u8 feature_0108[] = {0x01,0x08,0x03,0x00}; // Logic unit serial number
+    static  u8 feature_001d[] = {0x00,0x1d,0x00,0x00}; 
+    static  u8 feature_0100[] = {0x01,0x00,0x03,0x00}; 
+    
+    static  u8 feature_0104[] = {0x01,0x04,0x03,0x00}; 
+    static  u8 feature_0105[] = {0x01,0x05,0x03,0x00}; 
+    static  u8 feature_0108[] = {0x01,0x08,0x03,0x00}; 
     static struct ms_get_configration_data_feature_type feature_list[] = 
     {
     	{0x0000,8,feature_0000},
@@ -1315,7 +1320,7 @@ static int do_get_configuration(struct fsg_common *common ,struct fsg_buffhd *bh
     	{0x0010,12,feature_0010},
     	{0x001d,4,feature_001d},
     	{0x0100,4,feature_0100},
-    	//{0x0103,8,feature_0103},
+    	
     	{0x0104,4,feature_0104},
     	{0x0105,4,feature_0105},
     	{0x0108,4,feature_0108}
@@ -1329,14 +1334,14 @@ static int do_get_configuration(struct fsg_common *common ,struct fsg_buffhd *bh
     u8 *current_ptr;
    struct ms_get_configration_data_header_type* header_data_ptr = (struct ms_get_configration_data_header_type *)buffer;
      
-       //first init feature head  
+       
     memset((void *)header_data_ptr,0,sizeof(struct ms_get_configration_data_header_type));
     header_data_ptr->data_length = 4;
     current_ptr = buffer+ sizeof(struct ms_get_configration_data_header_type);
 
-        if ((rt_field == 0) && (starting_feature_num== 0)) // request all features
+        if ((rt_field == 0) && (starting_feature_num== 0)) 
     {
-        // fill all features
+        
 	    for (i=0; i<(sizeof(feature_list)/sizeof(feature_list[0])); i++)
         {
             memcpy(current_ptr,feature_list[i].data,feature_list[i].length);
@@ -1345,15 +1350,15 @@ static int do_get_configuration(struct fsg_common *common ,struct fsg_buffhd *bh
             header_data_ptr->data_length += feature_list[i].length;
         }
 
-         if (common->data_size_from_cmnd > header_data_ptr->data_length + 20) // any value 
+         if (common->data_size_from_cmnd > header_data_ptr->data_length + 20) 
             feature_is_found = 0;
         else
             feature_is_found = 1;
     }
-    else  // request definite features
+    else  
     {
 
-        //finding matching  features
+        
         for (i=0; i<sizeof(feature_list)/sizeof(feature_list[0]); i++)
         {
             if (feature_list[i].feature_code == starting_feature_num)
@@ -1363,7 +1368,7 @@ static int do_get_configuration(struct fsg_common *common ,struct fsg_buffhd *bh
             }
         }
 
-        //when find  features
+        
         if (feature_is_found)
         {
             memcpy(current_ptr,feature_list[i].data,feature_list[i].length);
@@ -1371,7 +1376,7 @@ static int do_get_configuration(struct fsg_common *common ,struct fsg_buffhd *bh
         }
     }
 
-        // calc data length
+        
     reply_len = header_data_ptr->data_length + 4;
     header_data_ptr->data_length = get_unaligned_be32(header_data_ptr);
    if (common->data_size_from_cmnd< reply_len)
@@ -1381,6 +1386,7 @@ static int do_get_configuration(struct fsg_common *common ,struct fsg_buffhd *bh
      return reply_len;
 }
 #endif
+
 /*-------------------------------------------------------------------------*/
 
 static int do_inquiry(struct fsg_common *common, struct fsg_buffhd *bh)
@@ -1502,6 +1508,7 @@ static int do_read_header(struct fsg_common *common, struct fsg_buffhd *bh)
 	return 8;
 }
 
+
 #ifndef CONFIG_USB_MAC
 static int do_read_toc(struct fsg_common *common, struct fsg_buffhd *bh)
 {
@@ -1533,61 +1540,67 @@ static int do_read_toc(struct fsg_common *common, struct fsg_buffhd *bh)
 
 #define SCSI_FLAG_SESSION_LEAD_OUT    0xAA
 #define SCSI_FLAG_TOC_MASK_FORMAT     0xC0
+
 static int do_read_toc(struct fsg_common *common, struct fsg_buffhd *bh)
 {
 	struct fsg_lun	*curlun = common->curlun;
 	int		msf = common->cmnd[1] & 0x02;
 	int		start_track = common->cmnd[6];
 	u8		*buf = (u8 *)bh->buf;
+	
 	u8      format= common->cmnd[2]&0xf;
 	u8 		control=common->cmnd[9];
 	u8 		reply_size=0;
+       
 
-	if ((common->cmnd[1] & ~0x02) != 0 ||	/* Mask away MSF */
+	if ((common->cmnd[1] & ~0x02) != 0 ||	
 			start_track > 1) {
 		curlun->sense_data = SS_INVALID_FIELD_IN_CDB;
 		return -EINVAL;
 	}
+	
 	switch (format)
     	{	
-        	case 0:  // format 0
+        	case 0:  
         	{
             	if ((control&SCSI_FLAG_TOC_MASK_FORMAT) == 0) 					
             	{   
 			#if 0
+	
 	memset(buf, 0, 20);
-	buf[1] = (20-2);		/* TOC data length */
-	buf[2] = 1;			/* First track number */
-	buf[3] = 1;			/* Last track number */
-	buf[5] = 0x16;			/* Data track, copying allowed */
-	buf[6] = 0x01;			/* Only track is number 1 */
+	buf[1] = (20-2);		
+	buf[2] = 1;			
+	buf[3] = 1;			
+	buf[5] = 0x16;			
+	buf[6] = 0x01;			
 	store_cdrom_address(&buf[8], msf, 0);
 
-	buf[13] = 0x16;			/* Lead-out track is data */
-	buf[14] = 0xAA;			/* Lead-out track number */
+	buf[13] = 0x16;			
+	buf[14] = 0xAA;			
 	store_cdrom_address(&buf[16], msf, curlun->num_sectors);
 	return 20;
+			
 			#endif
 			reply_size=scsi_build_toc_format0(buf,msf,start_track,curlun);
             	}
-            	else if ((control&SCSI_FLAG_TOC_MASK_FORMAT) == 0x40) // linux used
+            	else if ((control&SCSI_FLAG_TOC_MASK_FORMAT) == 0x40) 
             	{
                	 	reply_size=scsi_build_toc_format1(buf,msf,start_track,curlun);
            	 }
-           	 else  // mac used
+           	 else  
             	{
 			#if 0
 			memset(buf, 0, 48);
-			buf[1] = (48-2);		/* TOC data length */
-			buf[2] = 42;			/* First track number */
-			buf[3] = 43;			/* Last track number */
+			buf[1] = (48-2);		
+			buf[2] = 42;			
+			buf[3] = 43;			
         		buf[4] = 0x01;
-			buf[5] = 0x14;			/* Data track, copying allowed */
-			buf[6] = 0x00;			/* Only track is number 1 */
+			buf[5] = 0x14;			
+			buf[6] = 0x00;			
         		buf[7] = 0xA0;			
         		buf[12] = 0x01;
-			buf[15] = 0x01;			/* Lead-out track is data */
-			buf[16] = 0x14;			/* Lead-out track number */			
+			buf[15] = 0x01;			
+			buf[16] = 0x14;						
         		buf[18] = 0xA1;
         		buf[23] = 0x01;
         		buf[26] = 0x01;
@@ -1607,13 +1620,13 @@ static int do_read_toc(struct fsg_common *common, struct fsg_buffhd *bh)
             	break;
         	}
 
-        	case 1: // format 1
+        	case 1: 
         	{
             		reply_size=scsi_build_toc_format1(buf,msf,start_track,curlun); 
             		break;
         	}
 
-        	default:  // 
+        	default:  
         	{
             		reply_size=scsi_build_toc_format2(buf,msf,curlun);
             		break;
@@ -1621,10 +1634,10 @@ static int do_read_toc(struct fsg_common *common, struct fsg_buffhd *bh)
     	}
 
 	return reply_size;
+	
 }
-/*---------------------------------------
- scsi response data type
------------------------------------------*/
+
+
 struct ms_read_toc_data_header_type {
     u16   data_length;
     u8   first_track_num;
@@ -1672,10 +1685,10 @@ static int scsi_build_toc_format0(u8* buf, int msf, int start_track, struct fsg_
    	struct ms_read_toc_data_track0_type* toc_msf_data_track0_ptr;
 	toc_data_header_ptr = ( struct ms_read_toc_data_header_type *)buf;
 
-	toc_data_header_ptr->first_track_num = 1; /* First track number */
-    	toc_data_header_ptr->last_track_num = 1; /* Last track number */
+*/
+*/
 
-	toc_data_header_ptr->data_length = 2+sizeof(struct ms_read_toc_data_track0_type); /* TOC data length*/
+*/
     	length = sizeof(struct ms_read_toc_data_header_type) + sizeof(struct ms_read_toc_data_track0_type);
 				
     	if(start_track != SCSI_FLAG_SESSION_LEAD_OUT) 
@@ -1690,8 +1703,8 @@ static int scsi_build_toc_format0(u8* buf, int msf, int start_track, struct fsg_
 
 	if (start_track != SCSI_FLAG_SESSION_LEAD_OUT)
     	{
-       		toc_msf_data_track0_ptr->addr_control = 0x14; /* Data track, copying allowed, 0x16 */
-        	toc_msf_data_track0_ptr->track_number = 1;   /* Only track is number 1 */
+*/
+*/
 
 		if (msf)
         	{
@@ -1702,8 +1715,8 @@ static int scsi_build_toc_format0(u8* buf, int msf, int start_track, struct fsg_
         	memset((void*)toc_msf_data_track0_ptr,0,sizeof(struct ms_read_toc_data_track0_type));
     	}
 	
-	toc_msf_data_track0_ptr->addr_control = 0x14;  /* Lead-out track number, 0x16 */
-   	toc_msf_data_track0_ptr->track_number = 0xaa;  /* Lead-out track number */	
+*/
+*/	
     	if (msf)
     	{
         	toc_msf_data_track0_ptr->track_start_address = ms_scsi_lba_to_msf(curlun->num_sectors);
@@ -1796,6 +1809,7 @@ static int scsi_build_toc_format2(u8* buf, int msf, struct fsg_lun *curlun)
 }
 
 #endif
+//ztebsp zuojianfang add for mac cdrom, --,20120604
 
 
 static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
@@ -1834,11 +1848,13 @@ static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
 		buf += 4;
 		limit = 255;
 	} else {			/* MODE_SENSE_10 */
+              //ztebsp zuojianfang add for mac cdrom, ++,20120604
 #if defined(CONFIG_USB_MAC)
-		buf[3] = 0x00;		/* WP, DPOFUA */
+*/
 #else
 		buf[3] = (curlun->ro ? 0x80 : 0x00);		/* WP, DPOFUA */
 #endif
+		//ztebsp zuojianfang add for mac cdrom, --,20120604
 		buf += 8;
 		limit = 65535;		/* Should really be FSG_BUFLEN */
 	}
@@ -1849,6 +1865,7 @@ static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
 	 * The mode pages, in numerical order.  The only page we support
 	 * is the Caching page.
 	 */
+//ztebsp zuojianfang add for mac cdrom, ++,20120604
 #if defined(CONFIG_USB_MAC)
 	valid_page = 1;
 #else
@@ -1873,6 +1890,7 @@ static int do_mode_sense(struct fsg_common *common, struct fsg_buffhd *bh)
 		buf += 12;
 	}
 #endif
+	//ztebsp zuojianfang add for mac cdrom, --,20120604
 	/*
 	 * Check that a valid page was requested and the mode data length
 	 * isn't too long.
@@ -2568,19 +2586,23 @@ static int do_scsi_command(struct fsg_common *common)
 		break;
 
 	case READ_TOC:
+		//ztebsp zuojianfang add for mac cdrom, ++,20120604
 #if defined(CONFIG_USB_MAC)
 #else
 		if (!common->curlun || !common->curlun->cdrom)
 			goto unknown_cmnd;
 #endif
+		//ztebsp zuojianfang add for mac cdrom, --,20120604
 		common->data_size_from_cmnd =
 			get_unaligned_be16(&common->cmnd[7]);
 		reply = check_command(common, 10, DATA_DIR_TO_HOST,
+					//ztebsp zuojianfang add for mac cdrom, ++,20120604
 #if defined(CONFIG_USB_MAC)
 				      (0xf<<6) | (3<<1), 1,	
 #else
 				      (7<<6) | (1<<1), 1,
 #endif
+					//ztebsp zuojianfang add for mac cdrom, --,20120604				  
 				      "READ TOC");
 		if (reply == 0)
 			reply = do_read_toc(common, bh);
@@ -2675,6 +2697,7 @@ static int do_scsi_command(struct fsg_common *common)
 		if (reply == 0)
 			reply = do_write(common);
 		break;
+	//ztebsp zuojianfang add for mac cdrom, ++,20120604
 #if defined(CONFIG_USB_MAC)
 	case SC_GET_CONFIGRATION:
 		common->data_size_from_cmnd = 
@@ -2684,6 +2707,7 @@ static int do_scsi_command(struct fsg_common *common)
          	reply=do_get_configuration(common,bh);
  		break;
 #endif
+	//ztebsp zuojianfang add for mac cdrom, --,20120604
 
 	/*
 	 * Some mandatory commands that we recognize but don't implement.
@@ -2695,9 +2719,11 @@ static int do_scsi_command(struct fsg_common *common)
 	case RELEASE:
 	case RESERVE:
 	case SEND_DIAGNOSTIC:
+	//ztebsp zuojianfang add for mac cdrom, ++,20120604
 #if defined(CONFIG_USB_MAC)
 	case SC_SET_CD_SPEED:
 #endif
+	//ztebsp zuojianfang add for mac cdrom, --,20120604
 		/* Fall through */
 
 	default:
@@ -3339,6 +3365,7 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 
 	for (i = 0, lcfg = cfg->luns; i < nluns; ++i, ++curlun, ++lcfg) {
 		curlun->cdrom = !!lcfg->cdrom;
+		//ztebsp zuojianfang add for mac cdrom, ++,20120604
 #if defined(CONFIG_USB_MAC)
 		curlun->ro = 0;
 #else
@@ -3348,6 +3375,7 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		curlun->removable = lcfg->removable;
 		curlun->nofua = lcfg->nofua;
 		curlun->dev.release = fsg_lun_release;
+		//ztebsp zuojianfang add for mac cdrom, --,20120604
 		curlun->dev.parent = &gadget->dev;
 		/* curlun->dev.driver = &fsg_driver.driver; XXX */
 		dev_set_drvdata(&curlun->dev, &common->filesem);

@@ -53,6 +53,16 @@ static LIST_HEAD(wakeup_sources);
 
 static DECLARE_WAIT_QUEUE_HEAD(wakeup_count_wait_queue);
 
+
+void print_wakeup_source(void)
+{
+    struct wakeup_source *ws;
+    list_for_each_entry_rcu(ws, &wakeup_sources, entry)
+        if (ws->active)
+            printk("active wl: %s, counter: %x\n", ws->name, combined_event_count.counter);
+}
+EXPORT_SYMBOL_GPL(print_wakeup_source);
+
 /**
  * wakeup_source_prepare - Prepare a new wakeup source for initialization.
  * @ws: Wakeup source to prepare.
@@ -662,6 +672,8 @@ bool pm_wakeup_pending(void)
 	unsigned long flags;
 	bool ret = false;
 
+	print_wakeup_source();
+
 	spin_lock_irqsave(&events_lock, flags);
 	if (events_check_enabled) {
 		unsigned int cnt, inpr;
@@ -699,7 +711,7 @@ bool pm_get_wakeup_count(unsigned int *count, bool block)
 			split_counters(&cnt, &inpr);
 			if (inpr == 0 || signal_pending(current))
 				break;
-
+            print_wakeup_source();
 			schedule();
 		}
 		finish_wait(&wakeup_count_wait_queue, &wait);
